@@ -21,15 +21,28 @@ const App = () => {
   const [popup, setPopup] = useState(null);
   const [generatedCode, setGeneratedCode] = useState('');
   const [isSynced, setIsSynced] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isCodePreviewCollapsed, setIsCodePreviewCollapsed] = useState(false);
 
   useEffect(() => {
-    const code = generateCode(nodes, edges);
-    setGeneratedCode(code);
-    setIsSynced(true);
+    try {
+      const code = generateCode(nodes, edges);
+      setGeneratedCode(code);
+      setIsSynced(true);
 
-    const updates = resolvePrintNodeValues(nodes, edges);
-    for (const { nodeId, value } of updates) {
-      useStore.getState().updateNodeData(nodeId, { value });
+      const updates = resolvePrintNodeValues(nodes, edges);
+      const { nodes: currentNodes, updateNodeData } = useStore.getState();
+      const nodeMap = new Map(currentNodes.map(node => [node.id, node]));
+
+      for (const { nodeId, value } of updates) {
+        const currentNode = nodeMap.get(nodeId);
+        if (currentNode && currentNode.data.value !== value) {
+          updateNodeData(nodeId, { value });
+        }
+      }
+    } catch (error) {
+      console.error("Error in effect:", error);
+      // Optionally, display an error message to the user
     }
   }, [nodes, edges]);
 
@@ -89,16 +102,46 @@ const App = () => {
     }
   };
 
+  const onLoadConfig = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const config = JSON.parse(e.target.result);
+        useStore.setState({ nodes: config.nodes, edges: config.edges });
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const onExportToPy = () => {
+    const dataStr = "data:text/python;charset=utf-8," + encodeURIComponent(generatedCode);
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "generated_code.py");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
   return (
     <div className="app-container" onClick={closePopup}>
-      <aside className="sidebar">
-        <h2>Nodes</h2>
-        <button onClick={() => onAddNode('object')}>Add Object Node</button>
-        <button onClick={() => onAddNode('logic')}>Add Logic Node</button>
-        <button onClick={() => onAddNode('print')}>Add Print Node</button>
-        <hr />
-        <button onClick={onSaveConfig}>Save Config</button>
-        <button onClick={onSaveAndUpload}>Save & Upload</button>
+      <aside className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+        <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="collapse-btn">
+          {isSidebarCollapsed ? '>' : '<'}
+        </button>
+        <div className="sidebar-content">
+          <h2>Nodes</h2>
+          <button onClick={() => onAddNode('object')}>Add Object Node</button>
+          <button onClick={() => onAddNode('logic')}>Add Logic Node</button>
+          <button onClick={() => onAddNode('print')}>Add Print Node</button>
+          <hr />
+          <button onClick={onSaveConfig}>Save Config</button>
+          <button onClick={onSaveAndUpload}>Save & Upload</button>
+          <input type="file" accept=".json" onChange={onLoadConfig} style={{ display: 'none' }} id="load-config-input" />
+          <button onClick={() => document.getElementById('load-config-input').click()}>Load Config</button>
+          <button onClick={onExportToPy}>Export to .py</button>
+        </div>
       </aside>
       <main className="main-content">
         <div className="canvas-container">
@@ -131,12 +174,17 @@ const App = () => {
             </div>
           )}
         </div>
-        <aside className="code-preview-panel">
-          <div className="code-preview-header">
-            <h2>Code Preview</h2>
-            <div className={`sync-status ${isSynced ? 'synced' : 'unsynced'}`}></div>
+        <aside className={`code-preview-panel ${isCodePreviewCollapsed ? 'collapsed' : ''}`}>
+          <button onClick={() => setIsCodePreviewCollapsed(!isCodePreviewCollapsed)} className="collapse-btn">
+            {isCodePreviewCollapsed ? '<' : '>'}
+          </button>
+          <div className="code-preview-content">
+            <div className="code-preview-header">
+              <h2>Code Preview</h2>
+              <div className={`sync-status ${isSynced ? 'synced' : 'unsynced'}`}></div>
+            </div>
+            <pre>{generatedCode}</pre>
           </div>
-          <pre>{generatedCode}</pre>
         </aside>
       </main>
     </div>

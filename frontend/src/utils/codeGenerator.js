@@ -23,8 +23,8 @@ const generateCode = (nodes, edges) => {
         break;
       case 'logic':
         {
-          const inputA = findSourceNodeData(node.id, 'a') || 'input_a';
-          const inputB = findSourceNodeData(node.id, 'b') || 'input_b';
+          const inputA = findSourceNodeData(node.id, 'a') || '0';
+          const inputB = findSourceNodeData(node.id, 'b') || '0';
           const outputVar = `output_of_${node.id.replace(/-/g, '_')}`;
           code += `# Logic Node: ${node.id}\n`;
           code += `${outputVar} = ${inputA} ${node.data.operation || '+'} ${inputB}\n\n`;
@@ -32,7 +32,7 @@ const generateCode = (nodes, edges) => {
         break;
       case 'print':
         {
-          const inputValue = findSourceNodeData(node.id, null) || 'None';
+          const inputValue = findSourceNodeData(node.id, null) || '""';
           code += `# Print Node: ${node.id}\n`;
           code += `print(${inputValue})\n\n`;
         }

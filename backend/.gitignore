@@ -1,2 +1,2 @@
 # Ignore Python virtual environment
-backend/venv/
+venv/
