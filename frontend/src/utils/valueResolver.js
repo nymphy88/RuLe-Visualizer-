@@ -4,30 +4,31 @@ const resolveNodeValue = (nodeId, nodes, edges, resolvedValues) => {
   }
 
   const node = nodes.find(n => n.id === nodeId);
-  if (!node) {
+  if (!node || !node.data) { // Added check for node.data
     return 'unresolved';
   }
 
-  if (node.type === 'object') {
-    let value;
-    switch (node.data.dataType) {
-      case 'number':
-        value = parseFloat(node.data.value);
-        break;
-      case 'string':
-        value = node.data.value;
-        break;
-      case 'boolean':
-        value = node.data.value === 'true';
-        break;
-      default:
-        value = node.data.value;
+  try {
+    if (node.type === 'object') {
+      let value;
+      switch (node.data.dataType) {
+        case 'number':
+          value = parseFloat(node.data.value || 0);
+          break;
+        case 'string':
+          value = String(node.data.value || '');
+          break;
+        case 'boolean':
+          value = node.data.value === 'true';
+          break;
+        default:
+          value = node.data.value;
+      }
+      resolvedValues.set(nodeId, value);
+      return value;
     }
-    resolvedValues.set(nodeId, value);
-    return value;
-  }
 
-  if (node.type === 'logic') {
+    if (node.type === 'logic') {
     const inputAEdge = edges.find(e => e.target === nodeId && e.targetHandle === 'a');
     const inputBEdge = edges.find(e => e.target === nodeId && e.targetHandle === 'b');
 
@@ -55,6 +56,10 @@ const resolveNodeValue = (nodeId, nodes, edges, resolvedValues) => {
     }
     resolvedValues.set(nodeId, result);
     return result;
+    }
+  } catch (error) {
+    console.error(`Error resolving node ${nodeId}:`, error);
+    return 'error';
   }
 
   return 'unresolved';
