@@ -9,9 +9,22 @@ const resolveNodeValue = (nodeId, nodes, edges, resolvedValues) => {
   }
 
   if (node.type === 'object') {
-    const value = parseFloat(node.data.value);
+    let value;
+    switch (node.data.dataType) {
+      case 'number':
+        value = parseFloat(node.data.value);
+        break;
+      case 'string':
+        value = node.data.value;
+        break;
+      case 'boolean':
+        value = node.data.value === 'true';
+        break;
+      default:
+        value = node.data.value;
+    }
     resolvedValues.set(nodeId, value);
-    return isNaN(value) ? node.data.value : value;
+    return value;
   }
 
   if (node.type === 'logic') {

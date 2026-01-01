@@ -17,6 +17,39 @@ body, #root {
   border-right: 1px solid #ddd;
   padding: 1rem;
   background-color: #f7f7f7;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.sidebar.collapsed {
+  width: 40px;
+  padding: 1rem 0;
+}
+
+.sidebar .sidebar-content {
+  display: block;
+}
+
+.sidebar.collapsed .sidebar-content {
+  display: none;
+}
+
+.collapse-btn {
+  position: absolute;
+  top: 50%;
+  right: -15px;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: #f7f7f7;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.sidebar.collapsed .collapse-btn {
+  right: -15px;
 }
 
 .main-content {
@@ -38,6 +71,25 @@ body, #root {
   overflow: auto;
   display: flex;
   flex-direction: column;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.code-preview-panel.collapsed {
+  width: 40px;
+  padding: 1rem 0;
+}
+
+.code-preview-panel .code-preview-content {
+  display: block;
+}
+
+.code-preview-panel.collapsed .code-preview-content {
+  display: none;
+}
+
+.code-preview-panel .collapse-btn {
+  left: -15px;
 }
 
 .code-preview-header {

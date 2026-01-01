@@ -22,9 +22,24 @@ const useStore = create((set, get) => ({
   },
 
   onConnect: (connection) => {
-    set({
-      edges: addEdge(connection, get().edges),
-    });
+    const { nodes } = get();
+    const sourceNode = nodes.find(node => node.id === connection.source);
+    const targetNode = nodes.find(node => node.id === connection.target);
+
+    const sourceDataType = sourceNode.data.dataType || (['>', '<', '=='].includes(sourceNode.data.operation) ? 'boolean' : 'number');
+    let targetDataType = 'any'; // Default for PrintNode
+
+    if (targetNode.type === 'logic') {
+      targetDataType = 'number';
+    }
+
+    if (targetDataType === 'any' || sourceDataType === targetDataType) {
+      set({
+        edges: addEdge(connection, get().edges),
+      });
+    } else {
+      console.warn(`Incompatible connection: ${sourceDataType} to ${targetDataType}`);
+    }
   },
 
   addNode: (node) => {
@@ -48,8 +63,10 @@ const useStore = create((set, get) => ({
         x: node.position.x + 20,
         y: node.position.y + 20,
       },
+      selected: false,
     };
-    get().addNode(newNode);
+    const newNodes = get().nodes.map(n => ({ ...n, selected: false }));
+    set({ nodes: [...newNodes, newNode] });
   },
 
   updateNodeData: (nodeId, newData) => {
