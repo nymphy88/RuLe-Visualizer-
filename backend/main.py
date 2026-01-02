@@ -7,21 +7,6 @@ import re
 
 app = FastAPI()
 
-# In-memory storage for the node configuration
-current_config = Config(nodes=[], edges=[])
-
-# ✅ จุดที่ 1: เพิ่ม Middleware เพื่อแก้ปัญหา 405 (CORS)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://frontend-xbuu.onrender.com"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"], # อนุญาตทุก Method (GET, POST, OPTIONS ฯลฯ)
-    allow_headers=["*"], # อนุญาตทุก Header
-)
-
 class Node(BaseModel):
     id: str
     type: str
@@ -36,6 +21,21 @@ class Edge(BaseModel):
 class Config(BaseModel):
     nodes: List[Node]
     edges: List[Edge]
+
+# In-memory storage for the node configuration
+current_config = Config(nodes=[], edges=[])
+
+# ✅ จุดที่ 1: เพิ่ม Middleware เพื่อแก้ปัญหา 405 (CORS)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "https://frontend-xbuu.onrender.com"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"], # อนุญาตทุก Method (GET, POST, OPTIONS ฯลฯ)
+    allow_headers=["*"], # อนุญาตทุก Header
+)
 
 @app.post("/upload")
 async def upload_config(config: Config):
