@@ -58,6 +58,7 @@ const App = () => {
   useEffect(() => {
     const checkBackendConnection = async () => {
       const backendUrl = getBackendUrl();
+      console.log("Fetching from:", backendUrl);
       try {
         const response = await fetch(`${backendUrl}/health`);
         if (response.ok) {
@@ -115,6 +116,7 @@ const App = () => {
     };
     try {
       const backendUrl = getBackendUrl();
+      console.log("Fetching from:", backendUrl);
       const response = await fetch(`${backendUrl}/upload`, {
         method: 'POST',
         headers: {

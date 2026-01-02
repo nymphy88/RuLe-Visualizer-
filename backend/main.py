@@ -8,7 +8,10 @@ app = FastAPI()
 # ✅ จุดที่ 1: เพิ่ม Middleware เพื่อแก้ปัญหา 405 (CORS)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # อนุญาตให้ทุกที่ส่งข้อมูลมาหาได้ (เหมาะสำหรับการทดสอบ)
+    allow_origins=[
+        "http://localhost:5173",
+        "https://frontend-xbuu.onrender.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"], # อนุญาตทุก Method (GET, POST, OPTIONS ฯลฯ)
     allow_headers=["*"], # อนุญาตทุก Header
