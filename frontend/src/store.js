@@ -42,7 +42,7 @@ const useStore = create((set, get) => ({
     const newEdges = edges.filter(edge => !(edge.target === connection.target && edge.targetHandle === connection.targetHandle));
 
     set({
-      edges: addEdge(connection, newEdges),
+      edges: addEdge({ ...connection, animated: true }, newEdges),
     });
   },
 

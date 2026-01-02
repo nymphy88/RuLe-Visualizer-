@@ -20,6 +20,15 @@ const App = () => {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useStore();
   const [popup, setPopup] = useState(null);
   const [generatedCode, setGeneratedCode] = useState('');
+
+  const getBackendUrl = () => {
+    let backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+    if (backendUrl && !backendUrl.startsWith('http')) {
+      const protocol = window.location.protocol;
+      backendUrl = `${protocol}//${backendUrl}`;
+    }
+    return backendUrl;
+  };
   const [isSynced, setIsSynced] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isCodePreviewCollapsed, setIsCodePreviewCollapsed] = useState(false);
@@ -45,6 +54,24 @@ const App = () => {
       // Optionally, display an error message to the user
     }
   }, [nodes, edges]);
+
+  useEffect(() => {
+    const checkBackendConnection = async () => {
+      const backendUrl = getBackendUrl();
+      try {
+        const response = await fetch(`${backendUrl}/health`);
+        if (response.ok) {
+          console.log('Backend Connected');
+        } else {
+          console.error('Backend connection failed:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Backend connection failed:', error);
+      }
+    };
+
+    checkBackendConnection();
+  }, []);
 
   const onAddNode = (type) => {
     const newNode = {
@@ -87,10 +114,7 @@ const App = () => {
       edges,
     };
     try {
-      let backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
-      if (backendUrl && !backendUrl.startsWith('http')) {
-        backendUrl = `https://${backendUrl}`;
-      }
+      const backendUrl = getBackendUrl();
       const response = await fetch(`${backendUrl}/upload`, {
         method: 'POST',
         headers: {

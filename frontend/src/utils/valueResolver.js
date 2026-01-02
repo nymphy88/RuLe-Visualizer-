@@ -43,17 +43,19 @@ const resolveNodeValue = (nodeId, nodes, edges, resolvedValues) => {
       return 'unresolved';
     }
 
-    let result;
-    switch (node.data.operation) {
-      case '+': result = valA + valB; break;
-      case '-': result = valA - valB; break;
-      case '*': result = valA * valB; break;
-      case '/': result = valA / valB; break;
-      case '>': result = valA > valB; break;
-      case '<': result = valA < valB; break;
-      case '==': result = valA == valB; break;
-      default: result = 'unresolved';
-    }
+    const LOGIC_CONFIG = {
+      '+': (a, b) => a + b,
+      '-': (a, b) => a - b,
+      '*': (a, b) => a * b,
+      '/': (a, b) => a / b,
+      '>': (a, b) => a > b,
+      '<': (a, b) => a < b,
+      '==': (a, b) => a == b,
+    };
+
+    const operationFn = LOGIC_CONFIG[node.data.operation];
+    const result = operationFn ? operationFn(valA, valB) : 'unresolved';
+
     resolvedValues.set(nodeId, result);
     return result;
     }
