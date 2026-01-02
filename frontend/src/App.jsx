@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactFlow, { MiniMap, Controls, Background } from 'reactflow';
 import useStore from './store';
 import ObjectNode from './components/nodes/ObjectNode';
@@ -35,10 +35,38 @@ const App = () => {
   const [popup, setPopup] = useState(null);
   const [generatedCode, setGeneratedCode] = useState('');
   const [isSynced, setIsSynced] = useState(true);
-  const [isInteracting, setIsInteracting] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isCodePreviewCollapsed, setIsCodePreviewCollapsed] = useState(false);
   const [isSimulationMode, setIsSimulationMode] = useState(false);
+  const pollingIntervalRef = useRef(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+      console.log('Polling stopped.');
+    }
+  }, []);
+
+  const startPolling = useCallback(() => {
+    stopPolling(); // Ensure no multiple intervals are running
+    console.log('Polling started.');
+    pollingIntervalRef.current = setInterval(async () => {
+      const backendUrl = getBackendUrl();
+      try {
+        const response = await fetch(`${backendUrl}/state`);
+        const serverState = await response.json();
+        const { nodes: localNodes, edges: localEdges } = useStore.getState();
+
+        if (JSON.stringify(serverState.nodes) !== JSON.stringify(localNodes) ||
+            JSON.stringify(serverState.edges) !== JSON.stringify(localEdges)) {
+          useStore.setState({ nodes: serverState.nodes, edges: serverState.edges });
+        }
+      } catch (error) {
+        console.error('Failed to fetch state from backend:', error);
+      }
+    }, 1000);
+  }, [stopPolling]);
 
   // Auto-save with debounce
   useEffect(() => {
@@ -61,11 +89,11 @@ const App = () => {
           throw new Error('Auto-save failed');
         }
         console.log('Configuration auto-saved.');
-        setIsInteracting(false); // Release the lock
+        startPolling(); // Restart polling after successful save
       })
       .catch((error) => {
         console.error('Failed to auto-save config:', error);
-        setIsInteracting(false); // Also release lock on error to avoid getting stuck
+        startPolling(); // Also restart polling on error to avoid getting stuck
       });
     }, 500); // Debounce delay
 
@@ -131,30 +159,9 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const intervalId = setInterval(async () => {
-      if (isInteracting) {
-        console.log('User is interacting, skipping poll.');
-        return;
-      }
-
-      const backendUrl = getBackendUrl();
-      try {
-        const response = await fetch(`${backendUrl}/state`);
-        const serverState = await response.json();
-        const { nodes: localNodes, edges: localEdges } = useStore.getState();
-
-        // Simple deep-ish comparison to avoid unnecessary updates
-        if (JSON.stringify(serverState.nodes) !== JSON.stringify(localNodes) ||
-            JSON.stringify(serverState.edges) !== JSON.stringify(localEdges)) {
-          useStore.setState({ nodes: serverState.nodes, edges: serverState.edges });
-        }
-      } catch (error) {
-        console.error('Failed to fetch state from backend:', error);
-      }
-    }, 1000); // Poll every second
-
-    return () => clearInterval(intervalId);
-  }, [getBackendUrl]);
+    startPolling();
+    return () => stopPolling();
+  }, [startPolling, stopPolling]);
 
   useEffect(() => {
     if (!isSimulationMode) {
@@ -200,7 +207,7 @@ const App = () => {
     };
     addNode(newNode);
     setIsSynced(false);
-    setIsInteracting(true);
+    stopPolling();
   };
 
   const onNodeClick = (event, node) => {
@@ -305,17 +312,17 @@ const App = () => {
             onNodesChange={(changes) => {
               onNodesChange(changes);
               setIsSynced(false);
-              setIsInteracting(true);
+              stopPolling();
             }}
             onEdgesChange={(changes) => {
               onEdgesChange(changes);
               setIsSynced(false);
-              setIsInteracting(true);
+              stopPolling();
             }}
             onConnect={(connection) => {
               onConnect(connection);
               setIsSynced(false);
-              setIsInteracting(true);
+              stopPolling();
             }}
             onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}
