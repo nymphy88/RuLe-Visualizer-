@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: backend
+    env: python
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.4
+  - type: web
+    name: frontend
+    env: node
+    rootDir: frontend
+    buildCommand: "npm install && npm run build"
+    startCommand: "npx serve -s dist"
+    envVars:
+      - key: VITE_BACKEND_URL
+        fromService:
+          type: web
+          name: backend
+          property: url
