@@ -7,6 +7,9 @@ import re
 
 app = FastAPI()
 
+# In-memory storage for the node configuration
+current_config = Config(nodes=[], edges=[])
+
 # ✅ จุดที่ 1: เพิ่ม Middleware เพื่อแก้ปัญหา 405 (CORS)
 app.add_middleware(
     CORSMiddleware,
@@ -36,9 +39,13 @@ class Config(BaseModel):
 
 @app.post("/upload")
 async def upload_config(config: Config):
-    # ✅ จุดที่ 2: แก้ไขให้เป็น Pydantic V2 Syntax เพื่อความนิ่งของระบบ
-    print(config.model_dump_json(indent=2)) 
+    global current_config
+    current_config = config
     return {"message": "Configuration received successfully"}
+
+@app.get("/state")
+async def get_state():
+    return current_config
 
 @app.get("/")
 async def root():
@@ -160,6 +167,13 @@ def resolve_node_value(node_id: str, nodes: List[Node], edges: List[Edge], resol
 
     resolved_values[node_id] = value
     return value
+
+@app.post("/resolve")
+async def resolve(config: Config):
+    resolved_values = {}
+    for node in config.nodes:
+        resolve_node_value(node.id, config.nodes, config.edges, resolved_values)
+    return resolved_values
 
 @app.post("/simulate")
 async def simulate(config: Config):

@@ -9,7 +9,6 @@ import MathNode from './components/nodes/MathNode';
 import IfElseLogicNode from './components/nodes/IfElseLogicNode';
 import NodeActionPopup from './components/NodeActionPopup';
 import generateCode from './utils/codeGenerator';
-import resolvePrintNodeValues from './utils/valueResolver';
 import 'reactflow/dist/style.css';
 import './App.css';
 
@@ -45,22 +44,37 @@ const App = () => {
       const code = generateCode(nodes, edges);
       setGeneratedCode(code);
       setIsSynced(true);
-
-      const updates = resolvePrintNodeValues(nodes, edges);
-      const { nodes: currentNodes, updateNodeData } = useStore.getState();
-      const nodeMap = new Map(currentNodes.map(node => [node.id, node]));
-
-      for (const { nodeId, value } of updates) {
-        const currentNode = nodeMap.get(nodeId);
-        if (currentNode && currentNode.data.value !== value) {
-          updateNodeData(nodeId, { value });
-        }
-      }
     } catch (error) {
-      console.error("Error in effect:", error);
-      // Optionally, display an error message to the user
+      console.error("Error in code generation:", error);
     }
   }, [nodes, edges]);
+
+  useEffect(() => {
+    const resolveAndUpdatePrintNodes = async () => {
+      const { nodes, edges, updateNodeData } = useStore.getState();
+      const config = { nodes, edges };
+      const backendUrl = getBackendUrl();
+
+      try {
+        const response = await fetch(`${backendUrl}/resolve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config),
+        });
+        const resolvedValues = await response.json();
+
+        nodes.forEach(node => {
+          if (node.type === 'print' && resolvedValues[node.id] !== undefined) {
+            updateNodeData(node.id, { value: resolvedValues[node.id] });
+          }
+        });
+      } catch (error) {
+        console.error('Failed to resolve print nodes:', error);
+      }
+    };
+
+    resolveAndUpdatePrintNodes();
+  }, [nodes, edges, getBackendUrl]);
 
   useEffect(() => {
     const checkBackendConnection = async () => {
@@ -80,6 +94,27 @@ const App = () => {
 
     checkBackendConnection();
   }, []);
+
+  useEffect(() => {
+    const intervalId = setInterval(async () => {
+      const backendUrl = getBackendUrl();
+      try {
+        const response = await fetch(`${backendUrl}/state`);
+        const serverState = await response.json();
+        const { nodes: localNodes, edges: localEdges } = useStore.getState();
+
+        // Simple deep-ish comparison to avoid unnecessary updates
+        if (JSON.stringify(serverState.nodes) !== JSON.stringify(localNodes) ||
+            JSON.stringify(serverState.edges) !== JSON.stringify(localEdges)) {
+          useStore.setState({ nodes: serverState.nodes, edges: serverState.edges });
+        }
+      } catch (error) {
+        console.error('Failed to fetch state from backend:', error);
+      }
+    }, 1000); // Poll every second
+
+    return () => clearInterval(intervalId);
+  }, [getBackendUrl]);
 
   useEffect(() => {
     if (!isSimulationMode) {
