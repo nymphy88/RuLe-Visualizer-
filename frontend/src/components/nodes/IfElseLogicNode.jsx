@@ -22,8 +22,8 @@ const IfElseLogicNode = ({ id, data }) => {
       </Handle>
       <div style={{ marginTop: '10px' }}>
         <select value={data.operation || '>'} onChange={handleChange} style={{ width: '100%' }}>
-          <option value=">">A > B</option>
-          <option value="<">A < B</option>
+          <option value=">">A &gt; B</option>
+          <option value="<">A &lt; B</option>
           <option value="==">A == B</option>
         </select>
       </div>
