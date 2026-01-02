@@ -87,7 +87,10 @@ const App = () => {
       edges,
     };
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      let backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      if (backendUrl && !backendUrl.startsWith('http')) {
+        backendUrl = `https://${backendUrl}`;
+      }
       const response = await fetch(`${backendUrl}/upload`, {
         method: 'POST',
         headers: {
