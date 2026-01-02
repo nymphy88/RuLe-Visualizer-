@@ -83,6 +83,17 @@ const useStore = create((set, get) => ({
       }),
     });
   },
+
+  updateNodePosition: (nodeId, newPosition) => {
+    set({
+      nodes: get().nodes.map((node) => {
+        if (node.id === nodeId) {
+          return { ...node, position: { ...node.position, ...newPosition } };
+        }
+        return node;
+      }),
+    });
+  },
 }));
 
 export default useStore;

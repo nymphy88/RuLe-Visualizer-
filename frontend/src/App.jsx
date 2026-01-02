@@ -4,6 +4,7 @@ import useStore from './store';
 import ObjectNode from './components/nodes/ObjectNode';
 import LogicNode from './components/nodes/LogicNode';
 import PrintNode from './components/nodes/PrintNode';
+import PlayerNode from './components/nodes/PlayerNode';
 import NodeActionPopup from './components/NodeActionPopup';
 import generateCode from './utils/codeGenerator';
 import resolvePrintNodeValues from './utils/valueResolver';
@@ -14,6 +15,7 @@ const nodeTypes = {
   object: ObjectNode,
   logic: LogicNode,
   print: PrintNode,
+  player: PlayerNode,
 };
 
 const App = () => {
@@ -32,6 +34,7 @@ const App = () => {
   const [isSynced, setIsSynced] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isCodePreviewCollapsed, setIsCodePreviewCollapsed] = useState(false);
+  const [isSimulationMode, setIsSimulationMode] = useState(false);
 
   useEffect(() => {
     try {
@@ -73,6 +76,41 @@ const App = () => {
 
     checkBackendConnection();
   }, []);
+
+  useEffect(() => {
+    if (!isSimulationMode) {
+      return;
+    }
+
+    const intervalId = setInterval(async () => {
+      const { nodes, edges, updateNodeData, updateNodePosition } = useStore.getState();
+      const config = { nodes, edges };
+      const backendUrl = getBackendUrl();
+
+      try {
+        const response = await fetch(`${backendUrl}/simulate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config),
+        });
+        const { updates } = await response.json();
+        console.log('Backend Response:', updates);
+
+        updates.forEach(update => {
+          if (update.data) {
+            updateNodeData(update.nodeId, update.data);
+          }
+          if (update.position) {
+            updateNodePosition(update.nodeId, update.position);
+          }
+        });
+      } catch (error) {
+        console.error('Simulation step failed:', error);
+      }
+    }, 500);
+
+    return () => clearInterval(intervalId);
+  }, [isSimulationMode, getBackendUrl]);
 
   const onAddNode = (type) => {
     const newNode = {
@@ -165,7 +203,11 @@ const App = () => {
           <button onClick={() => onAddNode('object')}>Add Object Node</button>
           <button onClick={() => onAddNode('logic')}>Add Logic Node</button>
           <button onClick={() => onAddNode('print')}>Add Print Node</button>
+          <button onClick={() => onAddNode('player')}>Add Player Node</button>
           <hr />
+          <button onClick={() => setIsSimulationMode(!isSimulationMode)}>
+            {isSimulationMode ? 'Stop Simulation' : 'Start Simulation'}
+          </button>
           <button onClick={onSaveConfig}>Save Config</button>
           <button onClick={onSaveAndUpload}>Save & Upload</button>
           <input type="file" accept=".json" onChange={onLoadConfig} style={{ display: 'none' }} id="load-config-input" />
