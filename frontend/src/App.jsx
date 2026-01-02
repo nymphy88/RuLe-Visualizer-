@@ -21,23 +21,58 @@ const nodeTypes = {
   'logic-if-else': IfElseLogicNode,
 };
 
+const getBackendUrl = () => {
+  let backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+  if (backendUrl && !backendUrl.startsWith('http')) {
+    const protocol = window.location.protocol;
+    backendUrl = `${protocol}//${backendUrl}`;
+  }
+  return backendUrl;
+};
+
 const App = () => {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useStore();
   const [popup, setPopup] = useState(null);
   const [generatedCode, setGeneratedCode] = useState('');
-
-  const getBackendUrl = () => {
-    let backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
-    if (backendUrl && !backendUrl.startsWith('http')) {
-      const protocol = window.location.protocol;
-      backendUrl = `${protocol}//${backendUrl}`;
-    }
-    return backendUrl;
-  };
   const [isSynced, setIsSynced] = useState(true);
+  const [isInteracting, setIsInteracting] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isCodePreviewCollapsed, setIsCodePreviewCollapsed] = useState(false);
   const [isSimulationMode, setIsSimulationMode] = useState(false);
+
+  // Auto-save with debounce
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      const config = {
+        nodes,
+        edges,
+      };
+
+      const backendUrl = getBackendUrl();
+      fetch(`${backendUrl}/upload`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(config),
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Auto-save failed');
+        }
+        console.log('Configuration auto-saved.');
+        setIsInteracting(false); // Release the lock
+      })
+      .catch((error) => {
+        console.error('Failed to auto-save config:', error);
+        setIsInteracting(false); // Also release lock on error to avoid getting stuck
+      });
+    }, 500); // Debounce delay
+
+    return () => {
+      clearTimeout(debounceTimer);
+    };
+  }, [nodes, edges]);
 
   useEffect(() => {
     try {
@@ -97,6 +132,11 @@ const App = () => {
 
   useEffect(() => {
     const intervalId = setInterval(async () => {
+      if (isInteracting) {
+        console.log('User is interacting, skipping poll.');
+        return;
+      }
+
       const backendUrl = getBackendUrl();
       try {
         const response = await fetch(`${backendUrl}/state`);
@@ -160,6 +200,7 @@ const App = () => {
     };
     addNode(newNode);
     setIsSynced(false);
+    setIsInteracting(true);
   };
 
   const onNodeClick = (event, node) => {
@@ -264,14 +305,17 @@ const App = () => {
             onNodesChange={(changes) => {
               onNodesChange(changes);
               setIsSynced(false);
+              setIsInteracting(true);
             }}
             onEdgesChange={(changes) => {
               onEdgesChange(changes);
               setIsSynced(false);
+              setIsInteracting(true);
             }}
             onConnect={(connection) => {
               onConnect(connection);
               setIsSynced(false);
+              setIsInteracting(true);
             }}
             onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}
