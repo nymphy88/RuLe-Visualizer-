@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List, Dict, Any
-from fastapi.middleware.cors import CORSMiddleware #
+from fastapi.middleware.cors import CORSMiddleware
+from simpleeval import simple_eval
+import re
 
 app = FastAPI()
 
@@ -102,6 +104,59 @@ def resolve_node_value(node_id: str, nodes: List[Node], edges: List[Edge], resol
                 }
                 if operation in ops:
                     value = ops[operation](val_a, val_b)
+
+    elif node.type == 'math':
+        expression = node.data.get('expression', '')
+        # Find all variables in the expression (e.g., 'x', 'y')
+        variables = re.findall(r'[a-zA-Z_][a-zA-Z0-9_]*', expression)
+        names = {}
+        all_inputs_resolved = True
+
+        for var in set(variables):
+            input_edge = next((e for e in edges if e.target == node_id and e.targetHandle == var), None)
+            if input_edge:
+                var_value = resolve_node_value(input_edge.source, nodes, edges, resolved_values)
+                if var_value != 'unresolved':
+                    names[var] = var_value
+                else:
+                    all_inputs_resolved = False
+                    break
+            else:
+                # If an input is not connected, we can't solve the expression
+                all_inputs_resolved = False
+                break
+
+        if all_inputs_resolved:
+            try:
+                value = simple_eval(expression, names=names)
+            except Exception:
+                value = 'error'
+
+    elif node.type == 'logic-if-else':
+        # Condition inputs
+        input_a_edge = next((e for e in edges if e.target == node_id and e.targetHandle == 'a'), None)
+        input_b_edge = next((e for e in edges if e.target == node_id and e.targetHandle == 'b'), None)
+        # Value inputs
+        if_true_edge = next((e for e in edges if e.target == node_id and e.targetHandle == 'if_true'), None)
+        if_false_edge = next((e for e in edges if e.target == node_id and e.targetHandle == 'if_false'), None)
+
+        if input_a_edge and input_b_edge and if_true_edge and if_false_edge:
+            val_a = resolve_node_value(input_a_edge.source, nodes, edges, resolved_values)
+            val_b = resolve_node_value(input_b_edge.source, nodes, edges, resolved_values)
+            val_true = resolve_node_value(if_true_edge.source, nodes, edges, resolved_values)
+            val_false = resolve_node_value(if_false_edge.source, nodes, edges, resolved_values)
+
+            if val_a != 'unresolved' and val_b != 'unresolved':
+                operation = node.data.get('operation')
+                condition_met = False
+                if operation == '>' and val_a > val_b: condition_met = True
+                elif operation == '<' and val_a < val_b: condition_met = True
+                elif operation == '==' and val_a == val_b: condition_met = True
+
+                if condition_met:
+                    value = val_true
+                else:
+                    value = val_false
 
     resolved_values[node_id] = value
     return value

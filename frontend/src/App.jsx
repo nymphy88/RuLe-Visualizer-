@@ -5,6 +5,8 @@ import ObjectNode from './components/nodes/ObjectNode';
 import LogicNode from './components/nodes/LogicNode';
 import PrintNode from './components/nodes/PrintNode';
 import PlayerNode from './components/nodes/PlayerNode';
+import MathNode from './components/nodes/MathNode';
+import IfElseLogicNode from './components/nodes/IfElseLogicNode';
 import NodeActionPopup from './components/NodeActionPopup';
 import generateCode from './utils/codeGenerator';
 import resolvePrintNodeValues from './utils/valueResolver';
@@ -16,6 +18,8 @@ const nodeTypes = {
   logic: LogicNode,
   print: PrintNode,
   player: PlayerNode,
+  math: MathNode,
+  'logic-if-else': IfElseLogicNode,
 };
 
 const App = () => {
@@ -202,6 +206,8 @@ const App = () => {
           <h2>Nodes</h2>
           <button onClick={() => onAddNode('object')}>Add Object Node</button>
           <button onClick={() => onAddNode('logic')}>Add Logic Node</button>
+          <button onClick={() => onAddNode('logic-if-else')}>Add If-Else Node</button>
+          <button onClick={() => onAddNode('math')}>Add Math Node</button>
           <button onClick={() => onAddNode('print')}>Add Print Node</button>
           <button onClick={() => onAddNode('player')}>Add Player Node</button>
           <hr />
