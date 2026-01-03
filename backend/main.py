@@ -32,6 +32,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
+        "http://localhost:5183",
         "https://frontend-xbuu.onrender.com"
     ],
     allow_credentials=True,
@@ -153,6 +154,12 @@ def resolve_node_value(node_id: str, nodes: List[Node], edges: List[Edge], resol
             except Exception:
                 value = 'error'
 
+    elif node.type == 'print':
+        # Find the incoming edge to this print node
+        input_edge = next((e for e in edges if e.target == node_id), None)
+        if input_edge:
+            # Resolve the value of the node connected to this print node
+            value = resolve_node_value(input_edge.source, nodes, edges, resolved_values)
     elif node.type == 'logic-if-else':
         # Condition inputs
         input_a_edge = next((e for e in edges if e.target == node_id and e.targetHandle == 'a'), None)
