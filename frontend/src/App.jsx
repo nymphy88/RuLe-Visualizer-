@@ -30,6 +30,64 @@ const getBackendUrl = () => {
   return backendUrl;
 };
 
+const migrateSchema = (config) => {
+  if (!config || !Array.isArray(config.nodes)) {
+    console.error("Invalid config for migration:", config);
+    return { nodes: [], edges: [] };
+  }
+
+  const migratedNodes = config.nodes.map(node => {
+    const data = node.data || {};
+
+    switch (node.type) {
+      case 'object':
+        return {
+          ...node,
+          data: {
+            dataType: data.dataType !== undefined ? data.dataType : 'string',
+            value: data.value !== undefined ? data.value : '',
+          },
+        };
+      case 'logic':
+        return {
+          ...node,
+          data: {
+            operation: data.operation !== undefined ? data.operation : '==',
+          },
+        };
+      case 'math':
+        return {
+          ...node,
+          data: {
+            expression: data.expression !== undefined ? data.expression : '',
+          },
+        };
+      case 'logic-if-else':
+        return {
+          ...node,
+          data: {
+            operation: data.operation !== undefined ? data.operation : '==',
+          },
+        };
+      case 'player':
+         return { ...node, data: { ...data } };
+      case 'print':
+        return {
+          ...node,
+          data: {
+            value: data.value !== undefined ? data.value : '',
+          },
+        };
+      default:
+        return { ...node, data };
+    }
+  });
+
+  const migratedEdges = config.edges || [];
+
+  return { nodes: migratedNodes, edges: migratedEdges };
+};
+
 const App = () => {
   const nodes = useStore((state) => state.nodes);
   const edges = useStore((state) => state.edges);
@@ -67,9 +125,13 @@ const App = () => {
         },
         body: JSON.stringify(config),
       })
-      .then(response => {
+      .then(async response => {
         if (!response.ok) {
-          throw new Error('Auto-save failed');
+          if (response.status >= 500) {
+             console.error('Auto-save failed: Server error.');
+          }
+          const errorData = await response.json().catch(() => ({ detail: "An unknown error occurred." }));
+          throw new Error(errorData.detail || 'Auto-save failed');
         }
       })
       .catch((error) => {
@@ -104,6 +166,13 @@ const App = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(config),
         });
+        if (!response.ok) {
+          if (response.status >= 500) {
+            console.error('Failed to resolve print nodes: Server error.');
+          }
+          const errorData = await response.json().catch(() => ({ detail: "An unknown error occurred." }));
+          throw new Error(errorData.detail || 'Failed to resolve print nodes');
+        }
         const resolvedValues = await response.json();
 
         nodes.forEach(node => {
@@ -141,7 +210,16 @@ const App = () => {
       if (!isEditing) {
         const backendUrl = getBackendUrl();
         fetch(`${backendUrl}/state`)
-          .then(response => response.json())
+          .then(async response => {
+            if (!response.ok) {
+                if (response.status >= 500) {
+                    console.error('Failed to fetch state from backend: Server error.');
+                }
+                const errorData = await response.json().catch(() => ({ detail: "An unknown error occurred." }));
+                throw new Error(errorData.detail || 'Failed to fetch state');
+            }
+            return response.json()
+          })
           .then(serverState => {
             const { nodes: localNodes, edges: localEdges } = useStore.getState();
             if (JSON.stringify(serverState.nodes) !== JSON.stringify(localNodes) ||
@@ -263,11 +341,20 @@ const App = () => {
         },
         body: JSON.stringify(config),
       });
+
+      if (!response.ok) {
+        if (response.status >= 500) {
+          throw new Error("A server-side error occurred. Please try again later.");
+        }
+        const errorData = await response.json().catch(() => ({ detail: "An unknown error occurred." }));
+        throw new Error(errorData.detail);
+      }
+
       const result = await response.json();
       alert(result.message);
     } catch (error) {
       console.error('Failed to upload config:', error);
-      alert('Failed to upload config. See console for details.');
+      alert(`Failed to upload config: ${error.message}`);
     }
   };
 
@@ -276,8 +363,14 @@ const App = () => {
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        const config = JSON.parse(e.target.result);
-        useStore.setState({ nodes: config.nodes, edges: config.edges });
+        try {
+          const config = JSON.parse(e.target.result);
+          const migratedConfig = migrateSchema(config);
+          useStore.setState({ nodes: migratedConfig.nodes, edges: migratedConfig.edges });
+        } catch (error) {
+          console.error("Failed to load or parse config file:", error);
+          alert("Error: Could not load or parse the configuration file. It might be corrupted or in an old format.");
+        }
       };
       reader.readAsText(file);
     }

@@ -1,5 +1,5 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, Request, HTTPException
+from pydantic import BaseModel, ValidationError
 from typing import List, Dict, Any
 from fastapi.middleware.cors import CORSMiddleware
 from simpleeval import simple_eval
@@ -38,10 +38,18 @@ app.add_middleware(
 )
 
 @app.post("/upload")
-async def upload_config(config: Config):
+async def upload_config(request: Request):
     global current_config
-    current_config = config
-    return {"message": "Configuration received successfully"}
+    try:
+        data = await request.json()
+        # Ensure basic structure
+        nodes = data.get('nodes', [])
+        edges = data.get('edges', [])
+        config = Config(nodes=nodes, edges=edges)
+        current_config = config
+        return {"message": "Configuration received successfully"}
+    except (ValidationError, Exception) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid configuration: {e}")
 
 @app.get("/state")
 async def get_state():
@@ -169,11 +177,20 @@ def resolve_node_value(node_id: str, nodes: List[Node], edges: List[Edge], resol
     return value
 
 @app.post("/resolve")
-async def resolve(config: Config):
-    resolved_values = {}
-    for node in config.nodes:
-        resolve_node_value(node.id, config.nodes, config.edges, resolved_values)
-    return resolved_values
+async def resolve(request: Request):
+    try:
+        data = await request.json()
+        # Ensure basic structure
+        nodes = data.get('nodes', [])
+        edges = data.get('edges', [])
+        config = Config(nodes=nodes, edges=edges)
+
+        resolved_values = {}
+        for node in config.nodes:
+            resolve_node_value(node.id, config.nodes, config.edges, resolved_values)
+        return resolved_values
+    except (ValidationError, Exception) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid configuration: {e}")
 
 @app.post("/simulate")
 async def simulate(config: Config):
