@@ -68,7 +68,7 @@ const App = () => {
       .catch((error) => {
         console.error('Failed to auto-save config:', error);
       });
-    }, 500); // Debounce delay
+    }, 250); // Debounce delay
 
     return () => {
       clearTimeout(debounceTimer);
@@ -146,7 +146,7 @@ const App = () => {
             console.error('Failed to fetch state from backend:', error);
           });
       }
-    }, 1000);
+    }, 2500);
 
     return () => clearInterval(interval);
   }, []);
@@ -287,6 +287,14 @@ const App = () => {
           <input type="file" accept=".json" onChange={onLoadConfig} style={{ display: 'none' }} id="load-config-input" />
           <button onClick={() => document.getElementById('load-config-input').click()}>Load Config</button>
           <button onClick={onExportToPy}>Export to .py</button>
+          <hr />
+          <h2>Collaboration</h2>
+          <textarea
+            name="collaborationInput"
+            readOnly
+            placeholder="Collaborator input will appear here..."
+            style={{ width: '100%', height: '100px', marginTop: '10px' }}
+          />
         </div>
       </aside>
       <main className="main-content">
