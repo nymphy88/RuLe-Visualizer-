@@ -37,6 +37,7 @@ const App = () => {
   const onEdgesChange = useStore((state) => state.onEdgesChange);
   const onConnect = useStore((state) => state.onConnect);
   const addNode = useStore((state) => state.addNode);
+  const setEditing = useStore((state) => state.setEditing);
   const [popup, setPopup] = useState(null);
   const [generatedCode, setGeneratedCode] = useState('');
   const [isSynced, setIsSynced] = useState(true);
@@ -315,6 +316,8 @@ const App = () => {
               setIsSynced(false);
             }}
             onNodeClick={onNodeClick}
+            onNodeDragStart={() => setEditing(true)}
+            onNodeDragStop={() => setEditing(false)}
             nodeTypes={nodeTypes}
             fitView
           >
