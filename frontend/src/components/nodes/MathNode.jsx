@@ -36,13 +36,13 @@ const MathNode = ({ id, data }) => {
       </div>
       {variables.map((variable, index) => (
         <Handle
-          key={variable}
+          key={index} // Use index for a stable key during re-renders
           type="target"
           position={Position.Left}
-          id={variable}
+          id={`var-${index}`} // Use a stable, index-based ID
           style={{ top: `${(index + 1) * 30 + 50}px`, background: '#555' }}
         >
-          <span style={{ position: 'absolute', left: '-40px', top: '-8px' }}>{variable}</span>
+          <span style={{ position: 'absolute', left: '-40px', top: '-8px', fontSize: '10px' }}>{variable}</span>
         </Handle>
       ))}
       <Handle

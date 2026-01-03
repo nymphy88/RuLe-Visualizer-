@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException
 from pydantic import BaseModel, ValidationError
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi.middleware.cors import CORSMiddleware
 from simpleeval import simple_eval
 import re
@@ -17,6 +17,8 @@ class Edge(BaseModel):
     id: str
     source: str
     target: str
+    sourceHandle: Optional[str] = None
+    targetHandle: Optional[str] = None
 
 class Config(BaseModel):
     nodes: List[Node]
@@ -122,22 +124,26 @@ def resolve_node_value(node_id: str, nodes: List[Node], edges: List[Edge], resol
 
     elif node.type == 'math':
         expression = node.data.get('expression', '')
-        # Find all variables in the expression (e.g., 'x', 'y')
-        variables = re.findall(r'[a-zA-Z_][a-zA-Z0-9_]*', expression)
+        # Find all unique variables in order of appearance
+        found_variables = re.findall(r'[a-zA-Z_][a-zA-Z0-9_]*', expression)
+        unique_variables = list(dict.fromkeys(found_variables))
+
         names = {}
         all_inputs_resolved = True
 
-        for var in set(variables):
-            input_edge = next((e for e in edges if e.target == node_id and e.targetHandle == var), None)
+        for index, var_name in enumerate(unique_variables):
+            handle_id = f"var-{index}"
+            input_edge = next((e for e in edges if e.target == node_id and e.targetHandle == handle_id), None)
+
             if input_edge:
                 var_value = resolve_node_value(input_edge.source, nodes, edges, resolved_values)
                 if var_value != 'unresolved':
-                    names[var] = var_value
+                    names[var_name] = var_value
                 else:
                     all_inputs_resolved = False
                     break
             else:
-                # If an input is not connected, we can't solve the expression
+                # If a variable in the expression has no connected input, we cannot resolve.
                 all_inputs_resolved = False
                 break
 

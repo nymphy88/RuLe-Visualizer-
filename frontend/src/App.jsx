@@ -8,6 +8,7 @@ import PlayerNode from './components/nodes/PlayerNode';
 import MathNode from './components/nodes/MathNode';
 import IfElseLogicNode from './components/nodes/IfElseLogicNode';
 import ContextMenu from './components/ContextMenu';
+import ErrorBoundary from './components/ErrorBoundary';
 import generateCode from './utils/codeGenerator';
 import 'reactflow/dist/style.css';
 import './App.css';
@@ -31,59 +32,48 @@ const getBackendUrl = () => {
 };
 
 const migrateSchema = (config) => {
-  if (!config || !Array.isArray(config.nodes)) {
-    console.error("Invalid config for migration:", config);
+  if (!config) {
     return { nodes: [], edges: [] };
   }
 
   const migratedNodes = config.nodes.map(node => {
     const data = node.data || {};
 
-    switch (node.type) {
+    // Ensure all nodes have a data object.
+    const newNode = { ...node, data: { ...data } };
+
+    switch (newNode.type) {
       case 'object':
-        return {
-          ...node,
-          data: {
-            dataType: data.dataType !== undefined ? data.dataType : 'string',
-            value: data.value !== undefined ? data.value : '',
-          },
-        };
+        newNode.data.dataType = newNode.data.dataType || 'string';
+        newNode.data.value = newNode.data.value || '';
+        break;
       case 'logic':
-        return {
-          ...node,
-          data: {
-            operation: data.operation !== undefined ? data.operation : '==',
-          },
-        };
+        newNode.data.operation = newNode.data.operation || '==';
+        break;
       case 'math':
-        return {
-          ...node,
-          data: {
-            expression: data.expression !== undefined ? data.expression : '',
-          },
-        };
+        newNode.data.expression = newNode.data.expression || '';
+        break;
       case 'logic-if-else':
-        return {
-          ...node,
-          data: {
-            operation: data.operation !== undefined ? data.operation : '==',
-          },
-        };
+        newNode.data.operation = newNode.data.operation || '==';
+        break;
       case 'player':
-         return { ...node, data: { ...data } };
+        newNode.data.speed = newNode.data.speed || 0;
+        break;
       case 'print':
-        return {
-          ...node,
-          data: {
-            value: data.value !== undefined ? data.value : '',
-          },
-        };
+        newNode.data.value = newNode.data.value || '';
+        newNode.data.status = newNode.data.status || 'Ready';
+        break;
       default:
-        return { ...node, data };
+        break;
     }
+    return newNode;
   });
 
-  const migratedEdges = config.edges || [];
+  const migratedEdges = (config.edges || []).map(edge => ({
+    ...edge,
+    sourceHandle: edge.sourceHandle || null,
+    targetHandle: edge.targetHandle || null,
+  }));
 
   return { nodes: migratedNodes, edges: migratedEdges };
 };
@@ -98,6 +88,7 @@ const App = () => {
   const setEditing = useStore((state) => state.setEditing);
   const pollingRate = useStore((state) => state.pollingRate);
   const setPollingRate = useStore((state) => state.setPollingRate);
+  const updateNodeData = useStore((state) => state.updateNodeData);
   const deleteNode = useStore((state) => state.deleteNode);
   const cloneNode = useStore((state) => state.cloneNode);
   const disconnectNodeEdges = useStore((state) => state.disconnectNodeEdges);
@@ -108,6 +99,7 @@ const App = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isCodePreviewCollapsed, setIsCodePreviewCollapsed] = useState(false);
   const [isSimulationMode, setIsSimulationMode] = useState(false);
+  const [collabInputDisplay, setCollabInputDisplay] = useState('');
 
   // Auto-save with debounce
   useEffect(() => {
@@ -156,7 +148,7 @@ const App = () => {
 
   useEffect(() => {
     const resolveAndUpdatePrintNodes = async () => {
-      const { nodes, edges, updateNodeData } = useStore.getState();
+      if (nodes.length === 0) return;
       const config = { nodes, edges };
       const backendUrl = getBackendUrl();
 
@@ -186,7 +178,7 @@ const App = () => {
     };
 
     resolveAndUpdatePrintNodes();
-  }, [nodes, edges]);
+  }, [nodes, edges, updateNodeData]);
 
   useEffect(() => {
     const checkBackendConnection = async () => {
@@ -206,7 +198,7 @@ const App = () => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const { isEditing } = useStore.getState();
+      const isEditing = useStore.getState().isEditing;
       if (!isEditing) {
         const backendUrl = getBackendUrl();
         fetch(`${backendUrl}/state`)
@@ -221,6 +213,7 @@ const App = () => {
             return response.json()
           })
           .then(serverState => {
+            setCollabInputDisplay(JSON.stringify(serverState, null, 2));
             const { nodes: localNodes, edges: localEdges } = useStore.getState();
             if (JSON.stringify(serverState.nodes) !== JSON.stringify(localNodes) ||
                 JSON.stringify(serverState.edges) !== JSON.stringify(localEdges)) {
@@ -268,7 +261,7 @@ const App = () => {
     }, 500);
 
     return () => clearInterval(intervalId);
-  }, [isSimulationMode, getBackendUrl]);
+  }, [isSimulationMode, nodes, edges]);
 
   const onAddNode = (type) => {
     const newNode = {
@@ -445,9 +438,10 @@ const App = () => {
       </aside>
       <main className="main-content">
         <div className="canvas-container">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
+          <ErrorBoundary>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
             onNodesChange={(changes) => {
               onNodesChange(changes);
               setIsSynced(false);
@@ -472,6 +466,7 @@ const App = () => {
             <Controls />
             <Background />
           </ReactFlow>
+          </ErrorBoundary>
           {contextMenu && (
             <ContextMenu
               position={contextMenu.position}
