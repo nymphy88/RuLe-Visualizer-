@@ -7,7 +7,7 @@ import PrintNode from './components/nodes/PrintNode';
 import PlayerNode from './components/nodes/PlayerNode';
 import MathNode from './components/nodes/MathNode';
 import IfElseLogicNode from './components/nodes/IfElseLogicNode';
-import NodeActionPopup from './components/NodeActionPopup';
+import ContextMenu from './components/ContextMenu';
 import generateCode from './utils/codeGenerator';
 import 'reactflow/dist/style.css';
 import './App.css';
@@ -40,7 +40,11 @@ const App = () => {
   const setEditing = useStore((state) => state.setEditing);
   const pollingRate = useStore((state) => state.pollingRate);
   const setPollingRate = useStore((state) => state.setPollingRate);
-  const [popup, setPopup] = useState(null);
+  const deleteNode = useStore((state) => state.deleteNode);
+  const cloneNode = useStore((state) => state.cloneNode);
+  const disconnectNodeEdges = useStore((state) => state.disconnectNodeEdges);
+  const deleteEdgeById = useStore((state) => state.deleteEdgeById);
+  const [contextMenu, setContextMenu] = useState(null);
   const [generatedCode, setGeneratedCode] = useState('');
   const [isSynced, setIsSynced] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -199,15 +203,37 @@ const App = () => {
     setIsSynced(false);
   };
 
-  const onNodeClick = (event, node) => {
-    event.stopPropagation();
-    setPopup({
-      node,
-      position: { top: event.clientY, left: event.clientX },
-    });
-  };
+  const onNodeContextMenu = useCallback(
+    (event, node) => {
+      event.preventDefault();
+      const pane = event.target.closest('.react-flow__pane');
+      const rect = pane.getBoundingClientRect();
+      setContextMenu({
+        node,
+        position: {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        },
+      });
+    },
+    [setContextMenu]
+  );
 
-  const closePopup = () => setPopup(null);
+  const onEdgeContextMenu = useCallback(
+    (event, edge) => {
+      event.preventDefault();
+      deleteEdgeById(edge.id);
+    },
+    [deleteEdgeById]
+  );
+
+  const onPaneContextMenu = useCallback(
+    (event) => {
+      event.preventDefault();
+      setContextMenu(null);
+    },
+    [setContextMenu]
+  );
 
   const onSaveConfig = () => {
     const config = {
@@ -267,8 +293,16 @@ const App = () => {
     downloadAnchorNode.remove();
   };
 
+  const contextMenuActions = contextMenu?.node
+    ? [
+        { label: 'Delete', effect: () => deleteNode(contextMenu.node.id) },
+        { label: 'Clone', effect: () => cloneNode(contextMenu.node) },
+        { label: 'Disconnect All Edges', effect: () => disconnectNodeEdges(contextMenu.node.id) },
+      ]
+    : [];
+
   return (
-    <div className="app-container" onClick={closePopup}>
+    <div className="app-container" onClick={() => setContextMenu(null)}>
       <aside className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
         <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="collapse-btn">
           {isSidebarCollapsed ? '>' : '<'}
@@ -333,20 +367,24 @@ const App = () => {
               onConnect(connection);
               setIsSynced(false);
             }}
-            onNodeClick={onNodeClick}
+            onNodeContextMenu={onNodeContextMenu}
+            onEdgeContextMenu={onEdgeContextMenu}
+            onPaneContextMenu={onPaneContextMenu}
             onNodeDragStart={() => setEditing(true)}
             onNodeDragStop={() => setEditing(false)}
             nodeTypes={nodeTypes}
-            fitView
+            fitView={false}
           >
             <MiniMap />
             <Controls />
             <Background />
           </ReactFlow>
-          {popup && (
-            <div style={{ position: 'absolute', ...popup.position }}>
-              <NodeActionPopup node={popup.node} onClose={closePopup} />
-            </div>
+          {contextMenu && (
+            <ContextMenu
+              position={contextMenu.position}
+              actions={contextMenuActions}
+              onClose={() => setContextMenu(null)}
+            />
           )}
         </div>
         <aside className={`code-preview-panel ${isCodePreviewCollapsed ? 'collapsed' : ''}`}>
