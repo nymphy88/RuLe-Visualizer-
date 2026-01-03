@@ -31,40 +31,18 @@ const getBackendUrl = () => {
 };
 
 const App = () => {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useStore();
+  const nodes = useStore((state) => state.nodes);
+  const edges = useStore((state) => state.edges);
+  const onNodesChange = useStore((state) => state.onNodesChange);
+  const onEdgesChange = useStore((state) => state.onEdgesChange);
+  const onConnect = useStore((state) => state.onConnect);
+  const addNode = useStore((state) => state.addNode);
   const [popup, setPopup] = useState(null);
   const [generatedCode, setGeneratedCode] = useState('');
   const [isSynced, setIsSynced] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isCodePreviewCollapsed, setIsCodePreviewCollapsed] = useState(false);
   const [isSimulationMode, setIsSimulationMode] = useState(false);
-  const pollingIntervalRef = useRef(null);
-
-  const stopPolling = useCallback(() => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-  }, []);
-
-  const startPolling = useCallback(() => {
-    stopPolling(); // Ensure no multiple intervals are running
-    pollingIntervalRef.current = setInterval(async () => {
-      const backendUrl = getBackendUrl();
-      try {
-        const response = await fetch(`${backendUrl}/state`);
-        const serverState = await response.json();
-        const { nodes: localNodes, edges: localEdges } = useStore.getState();
-
-        if (JSON.stringify(serverState.nodes) !== JSON.stringify(localNodes) ||
-            JSON.stringify(serverState.edges) !== JSON.stringify(localEdges)) {
-          useStore.setState({ nodes: serverState.nodes, edges: serverState.edges });
-        }
-      } catch (error) {
-        console.error('Failed to fetch state from backend:', error);
-      }
-    }, 1000);
-  }, [stopPolling]);
 
   // Auto-save with debounce
   useEffect(() => {
@@ -86,11 +64,9 @@ const App = () => {
         if (!response.ok) {
           throw new Error('Auto-save failed');
         }
-        startPolling(); // Restart polling after successful save
       })
       .catch((error) => {
         console.error('Failed to auto-save config:', error);
-        startPolling(); // Also restart polling on error to avoid getting stuck
       });
     }, 500); // Debounce delay
 
@@ -124,7 +100,7 @@ const App = () => {
         const resolvedValues = await response.json();
 
         nodes.forEach(node => {
-          if (node.type === 'print' && resolvedValues[node.id] !== undefined) {
+          if (node.type === 'print' && resolvedValues[node.id] !== undefined && node.data.value !== resolvedValues[node.id]) {
             updateNodeData(node.id, { value: resolvedValues[node.id] });
           }
         });
@@ -134,7 +110,7 @@ const App = () => {
     };
 
     resolveAndUpdatePrintNodes();
-  }, [nodes, edges, getBackendUrl]);
+  }, [nodes, edges]);
 
   useEffect(() => {
     const checkBackendConnection = async () => {
@@ -153,9 +129,27 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    startPolling();
-    return () => stopPolling();
-  }, [startPolling, stopPolling]);
+    const interval = setInterval(() => {
+      const { isEditing } = useStore.getState();
+      if (!isEditing) {
+        const backendUrl = getBackendUrl();
+        fetch(`${backendUrl}/state`)
+          .then(response => response.json())
+          .then(serverState => {
+            const { nodes: localNodes, edges: localEdges } = useStore.getState();
+            if (JSON.stringify(serverState.nodes) !== JSON.stringify(localNodes) ||
+                JSON.stringify(serverState.edges) !== JSON.stringify(localEdges)) {
+              useStore.setState({ nodes: serverState.nodes, edges: serverState.edges });
+            }
+          })
+          .catch(error => {
+            console.error('Failed to fetch state from backend:', error);
+          });
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!isSimulationMode) {
@@ -200,7 +194,6 @@ const App = () => {
     };
     addNode(newNode);
     setIsSynced(false);
-    stopPolling();
   };
 
   const onNodeClick = (event, node) => {
@@ -304,17 +297,14 @@ const App = () => {
             onNodesChange={(changes) => {
               onNodesChange(changes);
               setIsSynced(false);
-              stopPolling();
             }}
             onEdgesChange={(changes) => {
               onEdgesChange(changes);
               setIsSynced(false);
-              stopPolling();
             }}
             onConnect={(connection) => {
               onConnect(connection);
               setIsSynced(false);
-              stopPolling();
             }}
             onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}

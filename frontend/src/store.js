@@ -8,6 +8,9 @@ import {
 const useStore = create((set, get) => ({
   nodes: [],
   edges: [],
+  isEditing: false,
+
+  setEditing: (isEditing) => set({ isEditing }),
 
   onNodesChange: (changes) => {
     set({

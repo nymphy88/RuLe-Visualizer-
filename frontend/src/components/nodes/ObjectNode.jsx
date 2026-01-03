@@ -4,9 +4,8 @@ import useStore from '../../store'; // นำเข้าแบบ Default Impor
 import { DataTypes, TypeColors } from '../../utils/types';
 
 const ObjectNode = ({ id, data }) => {
-  // ✅ แก้ไข: เปลี่ยนจาก 'from' เป็น '=' เพื่อดึงค่าออกจาก Hook
-  // และถ้า useStore ส่งออกเป็นฟังก์ชันเดียว (Default) ต้องเรียกใช้ useStore() ก่อน
-  const updateNodeData = useStore((state) => state.updateNodeData); 
+  const updateNodeData = useStore((state) => state.updateNodeData);
+  const setEditing = useStore((state) => state.setEditing);
 
   const handleChange = useCallback((evt) => {
     const { name, value } = evt.target;
@@ -24,6 +23,8 @@ const ObjectNode = ({ id, data }) => {
             name="name" 
             value={data.name || ''} // เปลี่ยนเป็น value เพื่อให้ UI อัปเดตตาม State
             onChange={handleChange} 
+            onFocus={() => setEditing(true)}
+            onBlur={() => setEditing(false)}
             style={{ width: '100%' }}
           />
         </label>
@@ -34,6 +35,9 @@ const ObjectNode = ({ id, data }) => {
             name="value" 
             value={data.value || ''} 
             onChange={handleChange} 
+            className="object-node-input"
+            onFocus={() => setEditing(true)}
+            onBlur={() => setEditing(false)}
             style={{ width: '100%' }}
           />
         </label>
