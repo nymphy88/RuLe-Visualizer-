@@ -9,7 +9,9 @@ const useStore = create((set, get) => ({
   nodes: [],
   edges: [],
   isEditing: false,
+  pollingRate: 5000,
 
+  setPollingRate: (pollingRate) => set({ pollingRate }),
   setEditing: (isEditing) => set({ isEditing }),
 
   onNodesChange: (changes) => {

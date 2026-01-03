@@ -38,6 +38,8 @@ const App = () => {
   const onConnect = useStore((state) => state.onConnect);
   const addNode = useStore((state) => state.addNode);
   const setEditing = useStore((state) => state.setEditing);
+  const pollingRate = useStore((state) => state.pollingRate);
+  const setPollingRate = useStore((state) => state.setPollingRate);
   const [popup, setPopup] = useState(null);
   const [generatedCode, setGeneratedCode] = useState('');
   const [isSynced, setIsSynced] = useState(true);
@@ -147,10 +149,10 @@ const App = () => {
             console.error('Failed to fetch state from backend:', error);
           });
       }
-    }, 2500);
+    }, pollingRate);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [pollingRate]);
 
   useEffect(() => {
     if (!isSimulationMode) {
@@ -279,6 +281,22 @@ const App = () => {
           <button onClick={() => onAddNode('math')}>Add Math Node</button>
           <button onClick={() => onAddNode('print')}>Add Print Node</button>
           <button onClick={() => onAddNode('player')}>Add Player Node</button>
+          <hr />
+          <h2>Settings</h2>
+          <div style={{ display: 'flex', alignItems: 'center', marginTop: '10px' }}>
+            <label htmlFor="pollingRate" style={{ marginRight: '10px' }}>Polling Rate:</label>
+            <input
+              type="range"
+              id="pollingRate"
+              name="pollingRate"
+              min="1000"
+              max="20000"
+              value={pollingRate}
+              onChange={(e) => setPollingRate(Number(e.target.value))}
+              style={{ flexGrow: 1 }}
+            />
+            <span style={{ marginLeft: '10px', minWidth: '40px' }}>{(pollingRate / 1000).toFixed(1)}s</span>
+          </div>
           <hr />
           <button onClick={() => setIsSimulationMode(!isSimulationMode)}>
             {isSimulationMode ? 'Stop Simulation' : 'Start Simulation'}
