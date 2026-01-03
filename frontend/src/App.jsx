@@ -44,13 +44,11 @@ const App = () => {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
-      console.log('Polling stopped.');
     }
   }, []);
 
   const startPolling = useCallback(() => {
     stopPolling(); // Ensure no multiple intervals are running
-    console.log('Polling started.');
     pollingIntervalRef.current = setInterval(async () => {
       const backendUrl = getBackendUrl();
       try {
@@ -88,7 +86,6 @@ const App = () => {
         if (!response.ok) {
           throw new Error('Auto-save failed');
         }
-        console.log('Configuration auto-saved.');
         startPolling(); // Restart polling after successful save
       })
       .catch((error) => {
@@ -142,12 +139,9 @@ const App = () => {
   useEffect(() => {
     const checkBackendConnection = async () => {
       const backendUrl = getBackendUrl();
-      console.log("Fetching from:", backendUrl);
       try {
         const response = await fetch(`${backendUrl}/health`);
-        if (response.ok) {
-          console.log('Backend Connected');
-        } else {
+        if (!response.ok) {
           console.error('Backend connection failed:', response.statusText);
         }
       } catch (error) {
@@ -180,7 +174,6 @@ const App = () => {
           body: JSON.stringify(config),
         });
         const { updates } = await response.json();
-        console.log('Backend Response:', updates);
 
         updates.forEach(update => {
           if (update.data) {
@@ -241,7 +234,6 @@ const App = () => {
     };
     try {
       const backendUrl = getBackendUrl();
-      console.log("Fetching from:", backendUrl);
       const response = await fetch(`${backendUrl}/upload`, {
         method: 'POST',
         headers: {
