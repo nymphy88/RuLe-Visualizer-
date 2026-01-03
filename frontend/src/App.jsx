@@ -17,7 +17,12 @@ const nodeTypes = {
 };
 
 const App = () => {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useStore();
+  const nodes = useStore((state) => state.nodes);
+  const edges = useStore((state) => state.edges);
+  const onNodesChange = useStore((state) => state.onNodesChange);
+  const onEdgesChange = useStore((state) => state.onEdgesChange);
+  const onConnect = useStore((state) => state.onConnect);
+  const addNode = useStore((state) => state.addNode);
   const [popup, setPopup] = useState(null);
   const [generatedCode, setGeneratedCode] = useState('');
   const [isSynced, setIsSynced] = useState(true);
