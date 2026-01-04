@@ -29,11 +29,18 @@ class Config(BaseModel):
     nodes: List[Node]
     edges: List[Edge]
 
+current_config = Config(nodes=[], edges=[])
+
 @app.post("/upload")
 async def upload_config(config: Config):
-    # ✅ จุดที่ 2: แก้ไขให้เป็น Pydantic V2 Syntax เพื่อความนิ่งของระบบ
-    print(config.model_dump_json(indent=2)) 
+    global current_config
+    current_config = config
+    print(config.model_dump_json(indent=2))
     return {"message": "Configuration received successfully"}
+
+@app.get("/state")
+async def get_state():
+    return current_config
 
 @app.get("/")
 async def root():

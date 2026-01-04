@@ -23,11 +23,56 @@ const App = () => {
   const onEdgesChange = useStore((state) => state.onEdgesChange);
   const onConnect = useStore((state) => state.onConnect);
   const addNode = useStore((state) => state.addNode);
+  const updateNodeData = useStore((state) => state.updateNodeData);
   const [popup, setPopup] = useState(null);
   const [generatedCode, setGeneratedCode] = useState('');
   const [isSynced, setIsSynced] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isCodePreviewCollapsed, setIsCodePreviewCollapsed] = useState(false);
+
+  // New state for Colab synchronization
+  const [collabInputDisplay, setCollabInputDisplay] = useState('');
+  const [isSyncEnabled, setIsSyncEnabled] = useState(true);
+
+  // Polling logic with recursive setTimeout
+  useEffect(() => {
+    let timeoutId;
+
+    const pollState = async () => {
+      if (!isSyncEnabled) {
+        return;
+      }
+      try {
+        const response = await fetch('http://localhost:8000/state');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const serverState = await response.json();
+
+        // Update display every time, as requested
+        setCollabInputDisplay(JSON.stringify(serverState, null, 2));
+
+        const localNodes = useStore.getState().nodes;
+        // Simple comparison to check for differences
+        if (JSON.stringify(localNodes) !== JSON.stringify(serverState.nodes)) {
+          useStore.setState({ nodes: serverState.nodes });
+        }
+      } catch (error) {
+        console.error("Polling error:", error);
+      } finally {
+        // Schedule the next poll
+        timeoutId = setTimeout(pollState, 1000);
+      }
+    };
+
+    // Start polling
+    pollState();
+
+    // Cleanup function
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [isSyncEnabled]); // Re-run effect when isSyncEnabled changes
 
   useEffect(() => {
     try {
@@ -146,6 +191,11 @@ const App = () => {
           <input type="file" accept=".json" onChange={onLoadConfig} style={{ display: 'none' }} id="load-config-input" />
           <button onClick={() => document.getElementById('load-config-input').click()}>Load Config</button>
           <button onClick={onExportToPy}>Export to .py</button>
+          <hr />
+          <h2>Colab Sync</h2>
+          <button onClick={() => setIsSyncEnabled(!isSyncEnabled)}>
+            {isSyncEnabled ? 'Disable Sync' : 'Enable Sync'}
+          </button>
         </div>
       </aside>
       <main className="main-content">
@@ -189,6 +239,10 @@ const App = () => {
               <div className={`sync-status ${isSynced ? 'synced' : 'unsynced'}`}></div>
             </div>
             <pre>{generatedCode}</pre>
+            <div className="code-preview-header">
+              <h2>Colab Input Display</h2>
+            </div>
+            <pre>{collabInputDisplay}</pre>
           </div>
         </aside>
       </main>
