@@ -1,28 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactFlow, { MiniMap, Controls, Background } from 'reactflow';
 import useStore from './store';
-import ObjectNode from './components/nodes/ObjectNode';
-import LogicNode from './components/nodes/LogicNode';
-import PrintNode from './components/nodes/PrintNode';
-import NodeActionPopup from './components/NodeActionPopup';
-import generateCode from './utils/codeGenerator';
-import resolvePrintNodeValues from './utils/valueResolver';
+import ObjectNode from './components/nodes/ObjectNode.jsx';
+import LogicNode from './components/nodes/LogicNode.jsx';
+import PrintNode from './components/nodes/PrintNode.jsx';
+import PlayerNode from './components/nodes/PlayerNode.jsx';
+import MathNode from './components/nodes/MathNode.jsx';
+import IfElseLogicNode from './components/nodes/IfElseLogicNode.jsx';
 import 'reactflow/dist/style.css';
 import './App.css';
+import { getBackendUrl } from './utils/getBackendUrl.js';
 
 const nodeTypes = {
   object: ObjectNode,
   logic: LogicNode,
   print: PrintNode,
+  player: PlayerNode,
+  math: MathNode,
+  'logic-if-else': IfElseLogicNode
 };
 
 const App = () => {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useStore();
-  const [popup, setPopup] = useState(null);
-  const [generatedCode, setGeneratedCode] = useState('');
-  const [isSynced, setIsSynced] = useState(true);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isCodePreviewCollapsed, setIsCodePreviewCollapsed] = useState(false);
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
   const [collabInputDisplay, setCollabInputDisplay] = useState('');
   const timeoutId = useRef(null);
@@ -31,20 +30,29 @@ const App = () => {
     const poll = async () => {
       if (!isSyncEnabled) return;
 
-      try {
-        const response = await fetch('http://localhost:8000/state');
-        const serverState = await response.json();
-        setCollabInputDisplay(JSON.stringify(serverState, null, 2));
-        const { nodes: localNodes, edges: localEdges } = useStore.getState();
-        const localState = { nodes: localNodes, edges: localEdges };
-
-        if (JSON.stringify(serverState) !== JSON.stringify(localState)) {
-          useStore.setState({ nodes: serverState.nodes, edges: serverState.edges });
+      const isEditing = useStore.getState().isEditing;
+      if (!isEditing) {
+        const backendUrl = getBackendUrl();
+        try {
+          const response = await fetch(`${backendUrl}/state`);
+          if (!response.ok) {
+            if (response.status >= 500) {
+              console.error('Failed to fetch state from backend: Server error.');
+            }
+            const errorData = await response.json().catch(() => ({ detail: "An unknown error occurred." }));
+            throw new Error(errorData.detail || 'Failed to fetch state');
+          }
+          const serverState = await response.json();
+          setCollabInputDisplay(JSON.stringify(serverState, null, 2));
+          const { nodes: localNodes, edges: localEdges } = useStore.getState();
+          if (JSON.stringify(serverState.nodes) !== JSON.stringify(localNodes) ||
+              JSON.stringify(serverState.edges) !== JSON.stringify(localEdges)) {
+            useStore.setState({ nodes: serverState.nodes, edges: serverState.edges });
+          }
+        } catch (error) {
+          console.error('Failed to fetch state from backend:', error);
         }
-      } catch (error) {
-        console.error('Polling error:', error);
       }
-
       timeoutId.current = setTimeout(poll, 2000);
     };
 
@@ -59,28 +67,6 @@ const App = () => {
     };
   }, [isSyncEnabled]);
 
-  useEffect(() => {
-    try {
-      const code = generateCode(nodes, edges);
-      setGeneratedCode(code);
-      setIsSynced(true);
-
-      const updates = resolvePrintNodeValues(nodes, edges);
-      const { nodes: currentNodes, updateNodeData } = useStore.getState();
-      const nodeMap = new Map(currentNodes.map(node => [node.id, node]));
-
-      for (const { nodeId, value } of updates) {
-        const currentNode = nodeMap.get(nodeId);
-        if (currentNode && currentNode.data.value !== value) {
-          updateNodeData(nodeId, { value });
-        }
-      }
-    } catch (error) {
-      console.error("Error in effect:", error);
-      // Optionally, display an error message to the user
-    }
-  }, [nodes, edges]);
-
   const onAddNode = (type) => {
     const newNode = {
       id: `${type}-${Date.now()}`,
@@ -89,148 +75,93 @@ const App = () => {
       data: {},
     };
     addNode(newNode);
-    setIsSynced(false);
   };
 
-  const onNodeClick = (event, node) => {
-    event.stopPropagation();
-    setPopup({
-      node,
-      position: { top: event.clientY, left: event.clientX },
-    });
-  };
-
-  const closePopup = () => setPopup(null);
-
-  const onSaveConfig = () => {
-    const config = {
-      nodes,
-      edges,
-    };
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "game_config.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-  };
-
-  const onSaveAndUpload = async () => {
+  const onSave = async () => {
     const config = {
       nodes,
       edges,
     };
     try {
-      const response = await fetch('http://localhost:8000/upload', {
+      const backendUrl = getBackendUrl();
+      const response = await fetch(`${backendUrl}/upload`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(config),
       });
+      if (!response.ok) {
+        if (response.status >= 500) {
+          console.error('Failed to save to backend: Server error');
+        }
+        const errorData = await response.json().catch(() => ({ detail: "An unknown error occurred." }));
+        throw new Error(errorData.detail || 'Failed to save');
+      }
       const result = await response.json();
       alert(result.message);
     } catch (error) {
-      console.error('Failed to upload config:', error);
-      alert('Failed to upload config. See console for details.');
+      console.error('Failed to save config:', error);
+      alert(`Failed to save config: ${error.message}`);
     }
   };
 
-  const onLoadConfig = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const config = JSON.parse(e.target.result);
-        useStore.setState({ nodes: config.nodes, edges: config.edges });
-      };
-      reader.readAsText(file);
+  const onRestore = async () => {
+    try {
+      const backendUrl = getBackendUrl();
+      const response = await fetch(`${backendUrl}/state`);
+      if (!response.ok) {
+        if (response.status >= 500) {
+          console.error('Failed to restore from backend: Server error');
+        }
+        const errorData = await response.json().catch(() => ({ detail: "An unknown error occurred." }));
+        throw new Error(errorData.detail || 'Failed to restore');
+      }
+      const serverState = await response.json();
+      useStore.setState({ nodes: serverState.nodes, edges: serverState.edges });
+    } catch (error) {
+      console.error('Failed to restore config:', error);
+      alert(`Failed to restore config: ${error.message}`);
     }
-  };
-
-  const onExportToPy = () => {
-    const dataStr = "data:text/python;charset=utf-8," + encodeURIComponent(generatedCode);
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "generated_code.py");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
   };
 
   return (
-    <div className="app-container" onClick={closePopup}>
-      <aside className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
-        <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="collapse-btn">
-          {isSidebarCollapsed ? '>' : '<'}
-        </button>
+    <div className="app-container">
+      <div className="sidebar">
         <div className="sidebar-content">
-          <h2>Nodes</h2>
+          <h2 className="sidebar-title">Configuration</h2>
+          <button onClick={onSave}>Save & Upload</button>
+          <button onClick={onRestore}>Restore</button>
           <button onClick={() => onAddNode('object')}>Add Object Node</button>
           <button onClick={() => onAddNode('logic')}>Add Logic Node</button>
           <button onClick={() => onAddNode('print')}>Add Print Node</button>
-          <hr />
-          <button onClick={onSaveConfig}>Save Config</button>
-          <button onClick={onSaveAndUpload}>Save & Upload</button>
-          <input type="file" accept=".json" onChange={onLoadConfig} style={{ display: 'none' }} id="load-config-input" />
-          <button onClick={() => document.getElementById('load-config-input').click()}>Load Config</button>
-          <button onClick={onExportToPy}>Export to .py</button>
-          <hr />
-          <button onClick={() => setIsSyncEnabled(!isSyncEnabled)}>
+          <button onClick={() => onAddNode('player')}>Add Player Node</button>
+          <button onClick={() => onAddNode('math')}>Add Math Node</button>
+          <button onClick={() => onAddNode('logic-if-else')}>Add If-Else Logic Node</button>
+          <button onClick={() => setIsSyncEnabled(prev => !prev)}>
             {isSyncEnabled ? 'Stop Sync' : 'Start Sync'}
           </button>
           <textarea
             className="collaboration-input"
             value={collabInputDisplay}
             readOnly
+            rows="10"
           />
         </div>
-      </aside>
-      <main className="main-content">
-        <div className="canvas-container">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={(changes) => {
-              onNodesChange(changes);
-              setIsSynced(false);
-            }}
-            onEdgesChange={(changes) => {
-              onEdgesChange(changes);
-              setIsSynced(false);
-            }}
-            onConnect={(connection) => {
-              onConnect(connection);
-              setIsSynced(false);
-            }}
-            onNodeClick={onNodeClick}
-            nodeTypes={nodeTypes}
-            fitView
-          >
-            <MiniMap />
-            <Controls />
-            <Background />
-          </ReactFlow>
-          {popup && (
-            <div style={{ position: 'absolute', ...popup.position }}>
-              <NodeActionPopup node={popup.node} onClose={closePopup} />
-            </div>
-          )}
-        </div>
-        <aside className={`code-preview-panel ${isCodePreviewCollapsed ? 'collapsed' : ''}`}>
-          <button onClick={() => setIsCodePreviewCollapsed(!isCodePreviewCollapsed)} className="collapse-btn">
-            {isCodePreviewCollapsed ? '<' : '>'}
-          </button>
-          <div className="code-preview-content">
-            <div className="code-preview-header">
-              <h2>Code Preview</h2>
-              <div className={`sync-status ${isSynced ? 'synced' : 'unsynced'}`}></div>
-            </div>
-            <pre>{generatedCode}</pre>
-          </div>
-        </aside>
-      </main>
+      </div>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        nodeTypes={nodeTypes}
+        fitView
+      >
+        <MiniMap />
+        <Controls />
+        <Background />
+      </ReactFlow>
     </div>
   );
 };
