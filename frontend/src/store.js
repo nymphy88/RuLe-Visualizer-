@@ -66,7 +66,8 @@ const useStore = create((set, get) => ({
 
     const sourceNode = nodes.find(node => node.id === connection.source);
     const targetNode = nodes.find(node => node.id === connection.target);
-
+    // ✅ เพิ่มบรรทัดนี้เพื่อกันตาย
+    if (!sourceNode || !targetNode) return;
     // Type compatibility check
     const sourceDataType = sourceNode.data.dataType || (['>', '<', '=='].includes(sourceNode.data.operation) ? 'boolean' : 'number');
     let targetDataType = 'any'; // Default for PrintNode
