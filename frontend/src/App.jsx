@@ -9,11 +9,19 @@ import generateCode from './utils/codeGenerator';
 import resolvePrintNodeValues from './utils/valueResolver';
 import 'reactflow/dist/style.css';
 import './App.css';
+// เพิ่ม Imports (สมมติว่าไฟล์มีอยู่แล้ว)
+import PlayerNode from './components/nodes/PlayerNode';
+import MathNode from './components/nodes/MathNode';
+import IfElseLogicNode from './components/nodes/IfElseLogicNode';
 
+// แก้ nodeTypes
 const nodeTypes = {
   object: ObjectNode,
   logic: LogicNode,
   print: PrintNode,
+  player: PlayerNode,      // เพิ่ม
+  math: MathNode,          // เพิ่ม
+  'logic-if-else': IfElseLogicNode, // เพิ่ม
 };
 
 const App = () => {
@@ -185,6 +193,9 @@ const App = () => {
           <button onClick={() => onAddNode('object')}>Add Object Node</button>
           <button onClick={() => onAddNode('logic')}>Add Logic Node</button>
           <button onClick={() => onAddNode('print')}>Add Print Node</button>
+          <button onClick={() => onAddNode('player')}>Add Player Node</button>
+          <button onClick={() => onAddNode('math')}>Add Math Node</button>
+          <button onClick={() => onAddNode('logic-if-else')}>Add If-Else Node</button>
           <hr />
           <button onClick={onSaveConfig}>Save Config</button>
           <button onClick={onSaveAndUpload}>Save & Upload</button>
