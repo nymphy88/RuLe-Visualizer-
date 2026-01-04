@@ -29,7 +29,16 @@ class Config(BaseModel):
     nodes: List[Node]
     edges: List[Edge]
 
-current_config = Config(nodes=[], edges=[])
+# Default 6 nodes for initial state
+default_nodes = [
+    {"id": "object-1", "type": "object", "position": {"x": 100, "y": 100}, "data": {"name": "Var", "value": "10"}},
+    {"id": "logic-1", "type": "logic", "position": {"x": 300, "y": 100}, "data": {"operation": "+"}},
+    {"id": "print-1", "type": "print", "position": {"x": 500, "y": 100}, "data": {}},
+    {"id": "player-1", "type": "player", "position": {"x": 100, "y": 300}, "data": {}},
+    {"id": "math-1", "type": "math", "position": {"x": 300, "y": 300}, "data": {"expression": "x + y"}},
+    {"id": "logic-if-else-1", "type": "logic-if-else", "position": {"x": 500, "y": 300}, "data": {}}
+]
+current_config = Config(nodes=default_nodes, edges=[])
 
 @app.post("/upload")
 async def upload_config(config: Config):
