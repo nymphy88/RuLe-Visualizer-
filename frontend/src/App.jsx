@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactFlow, { MiniMap, Controls, Background } from 'reactflow';
 import useStore from './store';
 import ObjectNode from './components/nodes/ObjectNode';
@@ -23,6 +23,41 @@ const App = () => {
   const [isSynced, setIsSynced] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isCodePreviewCollapsed, setIsCodePreviewCollapsed] = useState(false);
+  const [isSyncEnabled, setIsSyncEnabled] = useState(false);
+  const [collabInputDisplay, setCollabInputDisplay] = useState('');
+  const timeoutId = useRef(null);
+
+  useEffect(() => {
+    const poll = async () => {
+      if (!isSyncEnabled) return;
+
+      try {
+        const response = await fetch('http://localhost:8000/state');
+        const serverState = await response.json();
+        setCollabInputDisplay(JSON.stringify(serverState, null, 2));
+        const { nodes: localNodes, edges: localEdges } = useStore.getState();
+        const localState = { nodes: localNodes, edges: localEdges };
+
+        if (JSON.stringify(serverState) !== JSON.stringify(localState)) {
+          useStore.setState({ nodes: serverState.nodes, edges: serverState.edges });
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+
+      timeoutId.current = setTimeout(poll, 2000);
+    };
+
+    if (isSyncEnabled) {
+      poll();
+    }
+
+    return () => {
+      if (timeoutId.current) {
+        clearTimeout(timeoutId.current);
+      }
+    };
+  }, [isSyncEnabled]);
 
   useEffect(() => {
     try {
@@ -141,6 +176,15 @@ const App = () => {
           <input type="file" accept=".json" onChange={onLoadConfig} style={{ display: 'none' }} id="load-config-input" />
           <button onClick={() => document.getElementById('load-config-input').click()}>Load Config</button>
           <button onClick={onExportToPy}>Export to .py</button>
+          <hr />
+          <button onClick={() => setIsSyncEnabled(!isSyncEnabled)}>
+            {isSyncEnabled ? 'Stop Sync' : 'Start Sync'}
+          </button>
+          <textarea
+            className="collaboration-input"
+            value={collabInputDisplay}
+            readOnly
+          />
         </div>
       </aside>
       <main className="main-content">
