@@ -121,7 +121,13 @@ def resolve_node_value(node_id: str, nodes: List[Node], edges: List[Edge], resol
                     '==': lambda a, b: a == b,
                 }
                 if operation in ops:
-                    value = ops[operation](val_a, val_b)
+                    try:
+                        # Safely convert to float for calculation
+                        val_a_f = float(val_a)
+                        val_b_f = float(val_b)
+                        value = ops[operation](val_a_f, val_b_f)
+                    except (ValueError, TypeError):
+                        value = 'error'
 
     elif node.type == 'math':
         expression = node.data.get('expression', '')
@@ -159,7 +165,9 @@ def resolve_node_value(node_id: str, nodes: List[Node], edges: List[Edge], resol
         input_edge = next((e for e in edges if e.target == node_id), None)
         if input_edge:
             # Resolve the value of the node connected to this print node
-            value = resolve_node_value(input_edge.source, nodes, edges, resolved_values)
+            resolved_val = resolve_node_value(input_edge.source, nodes, edges, resolved_values)
+            # Ensure the output for a print node is always a string representation.
+            value = str(resolved_val)
     elif node.type == 'logic-if-else':
         # Condition inputs
         input_a_edge = next((e for e in edges if e.target == node_id and e.targetHandle == 'a'), None)
@@ -176,15 +184,22 @@ def resolve_node_value(node_id: str, nodes: List[Node], edges: List[Edge], resol
 
             if val_a != 'unresolved' and val_b != 'unresolved':
                 operation = node.data.get('operation')
-                condition_met = False
-                if operation == '>' and val_a > val_b: condition_met = True
-                elif operation == '<' and val_a < val_b: condition_met = True
-                elif operation == '==' and val_a == val_b: condition_met = True
+                try:
+                    # Safely convert to float for comparison
+                    val_a_f = float(val_a)
+                    val_b_f = float(val_b)
 
-                if condition_met:
-                    value = val_true
-                else:
-                    value = val_false
+                    condition_met = False
+                    if operation == '>' and val_a_f > val_b_f: condition_met = True
+                    elif operation == '<' and val_a_f < val_b_f: condition_met = True
+                    elif operation == '==' and val_a_f == val_b_f: condition_met = True
+
+                    if condition_met:
+                        value = val_true
+                    else:
+                        value = val_false
+                except (ValueError, TypeError):
+                    value = 'error'
 
     resolved_values[node_id] = value
     return value

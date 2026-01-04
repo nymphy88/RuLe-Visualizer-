@@ -1,0 +1,33 @@
+{
+  "nodes": [
+    {
+      "id": "1",
+      "type": "object",
+      "position": { "x": 100, "y": 100 },
+      "data": { "value": "123", "dataType": "number" }
+    },
+    {
+      "id": "2",
+      "type": "object",
+      "position": { "x": 100, "y": 300 },
+      "data": { "value": "hello", "dataType": "string" }
+    },
+    {
+      "id": "3",
+      "type": "logic",
+      "position": { "x": 400, "y": 200 },
+      "data": { "operation": "+" }
+    },
+    {
+      "id": "4",
+      "type": "print",
+      "position": { "x": 700, "y": 200 },
+      "data": {}
+    }
+  ],
+  "edges": [
+    { "id": "e1-3", "source": "1", "target": "3", "sourceHandle": null, "targetHandle": "a" },
+    { "id": "e2-3", "source": "2", "target": "3", "sourceHandle": null, "targetHandle": "b" },
+    { "id": "e3-4", "source": "3", "target": "4", "sourceHandle": null, "targetHandle": null }
+  ]
+}
