@@ -20,13 +20,18 @@ const LogicNode = ({ id, data }) => {
   };
 
   const outputDataType = getOutputDataType(data.operation || '+');
+  const status = data.status || 'Ready';
+  const statusColor = status === 'Error: Loop' ? 'red' : (status === 'Running...' ? 'orange' : 'green');
 
   return (
-    <div className="react-flow__node-default" style={{ padding: '10px', width: 150 }}>
+    <div className="react-flow__node-default" style={{ padding: '10px', width: 150, border: `1px solid ${status === 'Error: Loop' ? 'red' : '#ddd'}` }}>
       <strong>Logic Node</strong>
+      <div style={{ marginTop: '10px', fontSize: '12px' }}>
+        Status: <span style={{ color: statusColor, fontWeight: 'bold' }}>{status}</span>
+      </div>
       <div style={{ marginTop: '10px' }}>
-        <select 
-          value={data.operation || '+'} 
+        <select
+          value={data.operation || '+'}
           onChange={handleChange}
           style={{ width: '100%' }}
         >

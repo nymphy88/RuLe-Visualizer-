@@ -9,20 +9,78 @@ import generateCode from './utils/codeGenerator';
 import resolvePrintNodeValues from './utils/valueResolver';
 import 'reactflow/dist/style.css';
 import './App.css';
+// เพิ่ม Imports (สมมติว่าไฟล์มีอยู่แล้ว)
+import PlayerNode from './components/nodes/PlayerNode';
+import MathNode from './components/nodes/MathNode';
+import IfElseLogicNode from './components/nodes/IfElseLogicNode';
 
+// แก้ nodeTypes
 const nodeTypes = {
   object: ObjectNode,
   logic: LogicNode,
   print: PrintNode,
+  player: PlayerNode,      // เพิ่ม
+  math: MathNode,          // เพิ่ม
+  'logic-if-else': IfElseLogicNode, // เพิ่ม
 };
 
 const App = () => {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useStore();
+  const nodes = useStore((state) => state.nodes);
+  const edges = useStore((state) => state.edges);
+  const onNodesChange = useStore((state) => state.onNodesChange);
+  const onEdgesChange = useStore((state) => state.onEdgesChange);
+  const onConnect = useStore((state) => state.onConnect);
+  const addNode = useStore((state) => state.addNode);
+  const updateNodeData = useStore((state) => state.updateNodeData);
   const [popup, setPopup] = useState(null);
   const [generatedCode, setGeneratedCode] = useState('');
   const [isSynced, setIsSynced] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isCodePreviewCollapsed, setIsCodePreviewCollapsed] = useState(false);
+
+  // New state for Colab synchronization
+  const [collabInputDisplay, setCollabInputDisplay] = useState('');
+  const [isSyncEnabled, setIsSyncEnabled] = useState(true);
+
+  // Polling logic with recursive setTimeout
+  useEffect(() => {
+    let timeoutId;
+
+    const pollState = async () => {
+      if (!isSyncEnabled) {
+        return;
+      }
+      try {
+        const response = await fetch('http://localhost:8000/state');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const serverState = await response.json();
+
+        // Update display every time, as requested
+        setCollabInputDisplay(JSON.stringify(serverState, null, 2));
+
+        const localNodes = useStore.getState().nodes;
+        // Simple comparison to check for differences
+        if (JSON.stringify(localNodes) !== JSON.stringify(serverState.nodes)) {
+          useStore.setState({ nodes: serverState.nodes });
+        }
+      } catch (error) {
+        console.error("Polling error:", error);
+      } finally {
+        // Schedule the next poll
+        timeoutId = setTimeout(pollState, 1000);
+      }
+    };
+
+    // Start polling
+    pollState();
+
+    // Cleanup function
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [isSyncEnabled]); // Re-run effect when isSyncEnabled changes
 
   useEffect(() => {
     try {
@@ -135,12 +193,20 @@ const App = () => {
           <button onClick={() => onAddNode('object')}>Add Object Node</button>
           <button onClick={() => onAddNode('logic')}>Add Logic Node</button>
           <button onClick={() => onAddNode('print')}>Add Print Node</button>
+          <button onClick={() => onAddNode('player')}>Add Player Node</button>
+          <button onClick={() => onAddNode('math')}>Add Math Node</button>
+          <button onClick={() => onAddNode('logic-if-else')}>Add If-Else Node</button>
           <hr />
           <button onClick={onSaveConfig}>Save Config</button>
           <button onClick={onSaveAndUpload}>Save & Upload</button>
           <input type="file" accept=".json" onChange={onLoadConfig} style={{ display: 'none' }} id="load-config-input" />
           <button onClick={() => document.getElementById('load-config-input').click()}>Load Config</button>
           <button onClick={onExportToPy}>Export to .py</button>
+          <hr />
+          <h2>Colab Sync</h2>
+          <button onClick={() => setIsSyncEnabled(!isSyncEnabled)}>
+            {isSyncEnabled ? 'Disable Sync' : 'Enable Sync'}
+          </button>
         </div>
       </aside>
       <main className="main-content">
@@ -184,6 +250,10 @@ const App = () => {
               <div className={`sync-status ${isSynced ? 'synced' : 'unsynced'}`}></div>
             </div>
             <pre>{generatedCode}</pre>
+            <div className="code-preview-header">
+              <h2>Colab Input Display</h2>
+            </div>
+            <pre>{collabInputDisplay}</pre>
           </div>
         </aside>
       </main>
