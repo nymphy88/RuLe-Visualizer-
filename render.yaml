@@ -6,3 +6,14 @@ services:
     buildCommand: "pip install -r requirements.txt"
     startCommand: "uvicorn main:app --host 0.0.0.0 --port 10000"
     healthCheckPath: /health
+  - type: static
+    name: my-react-app
+    rootDir: frontend
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_BACKEND_URL
+        fromService:
+          type: web
+          name: my-fastapi-app
+          property: hostport
