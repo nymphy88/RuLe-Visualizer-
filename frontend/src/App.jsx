@@ -11,6 +11,10 @@ import 'reactflow/dist/style.css';
 import './App.css';
 import { getBackendUrl } from './utils/getBackendUrl.js';
 
+// --- CONFIG SECTION ---
+const FRONTEND_VERSION = "v1.0.1-UI-Update";
+// ----------------------
+
 const nodeTypes = {
   object: ObjectNode,
   logic: LogicNode,
@@ -23,47 +27,46 @@ const nodeTypes = {
 const App = () => {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useStore();
   
-  // --- [Config Variables] ประกาศค่าแบบ Modular ตามที่ต้องการ ---
+  // --- [Config Variables] ---
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
-  const [pollingRate, setPollingRate] = useState(1000); // Slider Control
+  const [pollingRate, setPollingRate] = useState(1000);
   const [collabInputDisplay, setCollabInputDisplay] = useState('');
+  const [backendVersion, setBackendVersion] = useState('');
   const timeoutId = useRef(null);
   const backendUrl = getBackendUrl();
 
-  // --- [Core Logic] รวมร่าง Polling ให้เหลืออันเดียวที่ฉลาดที่สุด ---
+  // --- [Core Logic] Refactored Polling ---
   useEffect(() => {
-    const poll = async () => {
+    const fetchData = async () => {
       if (!isSyncEnabled) return;
+      try {
+        const response = await fetch(`${backendUrl}/state`);
+        const data = await response.json();
 
-      // ตรวจสอบสถานะการแก้ไขเพื่อไม่ให้ AI เขียนทับ (Low Waste)
-      const isEditing = useStore.getState().isEditing;
-      if (!isEditing) {
-        try {
-          const response = await fetch(`${backendUrl}/state`);
-          if (response.ok) {
-            const data = await response.json();
-
-            // อัปเดต Node บนกระดานตามปกติ (ถ้ามี)
-            if (data.config && data.config.nodes && data.config.edges) {
-                const { nodes: localNodes, edges: localEdges } = useStore.getState();
-                if (JSON.stringify(data.config.nodes) !== JSON.stringify(localNodes) ||
-                    JSON.stringify(data.config.edges) !== JSON.stringify(localEdges)) {
-                  useStore.setState({ nodes: data.config.nodes, edges: data.config.edges });
-                }
-            }
-
-            // อัปเดตเฉพาะช่อง Collaboration Textbox
-            setCollabInputDisplay(data.collab_message);
-          }
-        } catch (error) {
-          console.error('Polling error:', error);
+        if (data.config) {
+          useStore.setState({ nodes: data.config.nodes || [], edges: data.config.edges || [] });
         }
+
+        if (data.collab_message !== undefined) {
+          setCollabInputDisplay(data.collab_message);
+        }
+
+        if (data.version) {
+          setBackendVersion(data.version);
+        }
+
+      } catch (error) {
+        console.error("Error fetching state:", error);
+        setBackendVersion('Error');
       }
-      // ใช้ตัวแปร pollingRate เพื่อให้ Slider ควบคุมความเร็วได้
-      timeoutId.current = setTimeout(poll, pollingRate);
+      timeoutId.current = setTimeout(fetchData, pollingRate);
     };
 
-    if (isSyncEnabled) poll();
+    if (isSyncEnabled) {
+      fetchData();
+    } else {
+      setBackendVersion(''); // Clear backend version when not syncing
+    }
     return () => clearTimeout(timeoutId.current);
   }, [isSyncEnabled, pollingRate, backendUrl]);
 
@@ -80,13 +83,18 @@ const App = () => {
 
   const onSave = async () => {
     try {
-      const response = await fetch(`${backendUrl}/upload`, {
+      const payload = {
+        nodes: nodes,
+        edges: edges,
+        collab_message: collabInputDisplay // Assuming we send the current display text
+      };
+      const response = await fetch(`${backendUrl}/update_state`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodes, edges }),
+        body: JSON.stringify(payload),
       });
       const result = await response.json();
-      alert(result.message);
+      alert(`Status: ${result.status}`);
     } catch (error) {
       alert(`Save failed: ${error.message}`);
     }
@@ -142,6 +150,9 @@ const App = () => {
             # Print Node: print-1767436451252\nprint("")\n\n# Object Node: unnamed\nunnamed_variable = None
           </pre>
         </div>
+      </div>
+      <div style={{ position: 'fixed', bottom: 5, right: 5, fontSize: '10px', opacity: 0.5 }}>
+        F: {FRONTEND_VERSION} | B: {backendVersion || 'Connecting...'}
       </div>
     </div>
   );
