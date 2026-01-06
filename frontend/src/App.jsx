@@ -22,106 +22,69 @@ const nodeTypes = {
 
 const App = () => {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useStore();
+  
+  // --- [Config Variables] ประกาศค่าแบบ Modular ตามที่ต้องการ ---
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
+  const [pollingRate, setPollingRate] = useState(1000); // Slider Control
   const [collabInputDisplay, setCollabInputDisplay] = useState('');
   const timeoutId = useRef(null);
+  const backendUrl = getBackendUrl();
 
+  // --- [Core Logic] รวมร่าง Polling ให้เหลืออันเดียวที่ฉลาดที่สุด ---
   useEffect(() => {
     const poll = async () => {
       if (!isSyncEnabled) return;
 
+      // ตรวจสอบสถานะการแก้ไขเพื่อไม่ให้ AI เขียนทับ (Low Waste)
       const isEditing = useStore.getState().isEditing;
       if (!isEditing) {
-        const backendUrl = getBackendUrl();
         try {
           const response = await fetch(`${backendUrl}/state`);
-          if (!response.ok) {
-            if (response.status >= 500) {
-              console.error('Failed to fetch state from backend: Server error.');
+          if (response.ok) {
+            const serverState = await response.json();
+            setCollabInputDisplay(JSON.stringify(serverState, null, 2));
+
+            const { nodes: localNodes, edges: localEdges } = useStore.getState();
+            // อัปเดตเฉพาะเมื่อมีความเปลี่ยนแปลง (Quantum-like efficiency)
+            if (JSON.stringify(serverState.nodes) !== JSON.stringify(localNodes) ||
+                JSON.stringify(serverState.edges) !== JSON.stringify(localEdges)) {
+              useStore.setState({ nodes: serverState.nodes, edges: serverState.edges });
             }
-            const errorData = await response.json().catch(() => ({ detail: "An unknown error occurred." }));
-            throw new Error(errorData.detail || 'Failed to fetch state');
-          }
-          const serverState = await response.json();
-          setCollabInputDisplay(JSON.stringify(serverState, null, 2));
-          const { nodes: localNodes, edges: localEdges } = useStore.getState();
-          if (JSON.stringify(serverState.nodes) !== JSON.stringify(localNodes) ||
-              JSON.stringify(serverState.edges) !== JSON.stringify(localEdges)) {
-            useStore.setState({ nodes: serverState.nodes, edges: serverState.edges });
           }
         } catch (error) {
-          console.error('Failed to fetch state from backend:', error);
+          console.error('Polling error:', error);
         }
       }
-      timeoutId.current = setTimeout(poll, 2000);
+      // ใช้ตัวแปร pollingRate เพื่อให้ Slider ควบคุมความเร็วได้
+      timeoutId.current = setTimeout(poll, pollingRate);
     };
 
-    if (isSyncEnabled) {
-      poll();
-    }
+    if (isSyncEnabled) poll();
+    return () => clearTimeout(timeoutId.current);
+  }, [isSyncEnabled, pollingRate, backendUrl]);
 
-    return () => {
-      if (timeoutId.current) {
-        clearTimeout(timeoutId.current);
-      }
-    };
-  }, [isSyncEnabled]);
-
+  // --- [Helper Functions] ---
   const onAddNode = (type) => {
     const newNode = {
       id: `${type}-${Date.now()}`,
       type,
       position: { x: Math.random() * 400, y: Math.random() * 400 },
-      data: {},
+      data: { label: `${type} node` },
     };
     addNode(newNode);
   };
 
   const onSave = async () => {
-    const config = {
-      nodes,
-      edges,
-    };
     try {
-      const backendUrl = getBackendUrl();
       const response = await fetch(`${backendUrl}/upload`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(config),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodes, edges }),
       });
-      if (!response.ok) {
-        if (response.status >= 500) {
-          console.error('Failed to save to backend: Server error');
-        }
-        const errorData = await response.json().catch(() => ({ detail: "An unknown error occurred." }));
-        throw new Error(errorData.detail || 'Failed to save');
-      }
       const result = await response.json();
       alert(result.message);
     } catch (error) {
-      console.error('Failed to save config:', error);
-      alert(`Failed to save config: ${error.message}`);
-    }
-  };
-
-  const onRestore = async () => {
-    try {
-      const backendUrl = getBackendUrl();
-      const response = await fetch(`${backendUrl}/state`);
-      if (!response.ok) {
-        if (response.status >= 500) {
-          console.error('Failed to restore from backend: Server error');
-        }
-        const errorData = await response.json().catch(() => ({ detail: "An unknown error occurred." }));
-        throw new Error(errorData.detail || 'Failed to restore');
-      }
-      const serverState = await response.json();
-      useStore.setState({ nodes: serverState.nodes, edges: serverState.edges });
-    } catch (error) {
-      console.error('Failed to restore config:', error);
-      alert(`Failed to restore config: ${error.message}`);
+      alert(`Save failed: ${error.message}`);
     }
   };
 
@@ -130,34 +93,37 @@ const App = () => {
       <div className="sidebar">
         <div className="sidebar-content">
           <h2 className="sidebar-title">Configuration</h2>
-          <button onClick={onSave}>Save & Upload</button>
-          <button onClick={onRestore}>Restore</button>
-          <button onClick={() => onAddNode('object')}>Add Object Node</button>
-          <button onClick={() => onAddNode('logic')}>Add Logic Node</button>
-          <button onClick={() => onAddNode('print')}>Add Print Node</button>
-          <button onClick={() => onAddNode('player')}>Add Player Node</button>
-          <button onClick={() => onAddNode('math')}>Add Math Node</button>
-          <button onClick={() => onAddNode('logic-if-else')}>Add If-Else Logic Node</button>
-          <button onClick={() => setIsSyncEnabled(prev => !prev)}>
-            {isSyncEnabled ? 'Stop Sync' : 'Start Sync'}
-          </button>
-          <textarea
-            className="collaboration-input"
-            value={collabInputDisplay}
-            readOnly
-            rows="10"
-          />
+          <div className="button-group">
+             <button onClick={onSave}>Save & Upload</button>
+             <button onClick={() => setIsSyncEnabled(prev => !prev)}>
+               {isSyncEnabled ? 'Stop Sync' : 'Start Sync'}
+             </button>
+          </div>
+
+          {/* Slider สำหรับคุมความเร็ว (คืนชีพฟีเจอร์ที่หายไป) */}
+          <div style={{ marginTop: '15px', padding: '10px', background: '#f5f5f5', borderRadius: '8px' }}>
+            <label style={{ fontSize: '12px', color: '#666' }}>Polling Speed: {pollingRate}ms</label>
+            <input 
+              type="range" min="200" max="5000" step="200"
+              value={pollingRate} 
+              onChange={(e) => setPollingRate(Number(e.target.value))}
+              style={{ width: '100%' }}
+            />
+          </div>
+
+          <div className="node-buttons" style={{ marginTop: '20px' }}>
+            <button onClick={() => onAddNode('object')}>+ Object</button>
+            <button onClick={() => onAddNode('logic')}>+ Logic</button>
+            <button onClick={() => onAddNode('print')}>+ Print</button>
+            <button onClick={() => onAddNode('player')}>+ Player</button>
+            <button onClick={() => onAddNode('math')}>+ Math</button>
+            <button onClick={() => onAddNode('logic-if-else')}>+ If-Else</button>
+          </div>
+
+          <textarea className="collaboration-input" value={collabInputDisplay} readOnly rows="10" />
         </div>
       </div>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        nodeTypes={nodeTypes}
-        fitView
-      >
+      <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} nodeTypes={nodeTypes} fitView>
         <MiniMap />
         <Controls />
         <Background />

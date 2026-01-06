@@ -4,6 +4,7 @@ import {
   applyNodeChanges,
   applyEdgeChanges,
 } from 'reactflow';
+import hasCycle from './utils/cycleDetection';
 
 const useStore = create((set, get) => ({
   nodes: [],
@@ -16,16 +17,57 @@ const useStore = create((set, get) => ({
   },
 
   onEdgesChange: (changes) => {
-    set({
-      edges: applyEdgeChanges(changes, get().edges),
+    const isRemoveChange = changes.some(change => change.type === 'remove');
+
+    set(state => {
+      let newNodes = state.nodes;
+      // If an edge is removed, it might break a cycle. Reset status of error nodes.
+      if (isRemoveChange) {
+        newNodes = state.nodes.map(node => {
+          if (node.data.status === 'Error: Loop') {
+            return { ...node, data: { ...node.data, status: 'Ready' } };
+          }
+          return node;
+        });
+      }
+
+      return {
+        edges: applyEdgeChanges(changes, state.edges),
+        nodes: newNodes,
+      };
     });
   },
 
   onConnect: (connection) => {
     const { nodes, edges } = get();
+
+    if (hasCycle(nodes, edges, connection)) {
+      console.warn('A cycle was detected. The connection is not allowed.');
+      set({
+        nodes: get().nodes.map(node => {
+          if (node.id === connection.source || node.id === connection.target) {
+            return { ...node, data: { ...node.data, status: 'Error: Loop' } };
+          }
+          return node;
+        }),
+      });
+      return;
+    }
+
+    // Reset status for the connected nodes if they were in an error state
+    set({
+      nodes: get().nodes.map(node => {
+        if ((node.id === connection.source || node.id === connection.target) && node.data.status === 'Error: Loop') {
+          return { ...node, data: { ...node.data, status: 'Ready' } };
+        }
+        return node;
+      }),
+    });
+
     const sourceNode = nodes.find(node => node.id === connection.source);
     const targetNode = nodes.find(node => node.id === connection.target);
-
+    // ✅ เพิ่มบรรทัดนี้เพื่อกันตาย
+    if (!sourceNode || !targetNode) return;
     // Type compatibility check
     const sourceDataType = sourceNode.data.dataType || (['>', '<', '=='].includes(sourceNode.data.operation) ? 'boolean' : 'number');
     let targetDataType = 'any'; // Default for PrintNode
@@ -42,7 +84,7 @@ const useStore = create((set, get) => ({
     const newEdges = edges.filter(edge => !(edge.target === connection.target && edge.targetHandle === connection.targetHandle));
 
     set({
-      edges: addEdge(connection, newEdges),
+      edges: addEdge({ ...connection, animated: true }, newEdges),
     });
   },
 
