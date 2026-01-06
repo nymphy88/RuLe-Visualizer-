@@ -30,40 +30,32 @@ const App = () => {
   const timeoutId = useRef(null);
   const backendUrl = getBackendUrl();
 
-  // --- [Core Logic] รวมร่าง Polling ให้เหลืออันเดียวที่ฉลาดที่สุด ---
+  // --- [Core Logic] Refactored Polling ---
   useEffect(() => {
-    const poll = async () => {
+    const fetchData = async () => {
       if (!isSyncEnabled) return;
+      try {
+        const response = await fetch(`${backendUrl}/state`);
+        const data = await response.json();
 
-      // ตรวจสอบสถานะการแก้ไขเพื่อไม่ให้ AI เขียนทับ (Low Waste)
-      const isEditing = useStore.getState().isEditing;
-      if (!isEditing) {
-        try {
-          const response = await fetch(`${backendUrl}/state`);
-          if (response.ok) {
-            const data = await response.json();
-
-            // อัปเดต Node บนกระดานตามปกติ (ถ้ามี)
-            if (data.config && data.config.nodes && data.config.edges) {
-                const { nodes: localNodes, edges: localEdges } = useStore.getState();
-                if (JSON.stringify(data.config.nodes) !== JSON.stringify(localNodes) ||
-                    JSON.stringify(data.config.edges) !== JSON.stringify(localEdges)) {
-                  useStore.setState({ nodes: data.config.nodes, edges: data.config.edges });
-                }
-            }
-
-            // อัปเดตเฉพาะช่อง Collaboration Textbox
-            setCollabInputDisplay(data.collab_message);
-          }
-        } catch (error) {
-          console.error('Polling error:', error);
+        // Update Nodes & Edges (Check if nested under config)
+        if (data.config) {
+          useStore.setState({ nodes: data.config.nodes || [], edges: data.config.edges || [] });
         }
+
+        // Update Collab Message (The Terminal Box)
+        if (data.collab_message !== undefined) {
+          setCollabInputDisplay(data.collab_message);
+        }
+      } catch (error) {
+        console.error("Error fetching state:", error);
       }
-      // ใช้ตัวแปร pollingRate เพื่อให้ Slider ควบคุมความเร็วได้
-      timeoutId.current = setTimeout(poll, pollingRate);
+      timeoutId.current = setTimeout(fetchData, pollingRate);
     };
 
-    if (isSyncEnabled) poll();
+    if (isSyncEnabled) {
+      fetchData();
+    }
     return () => clearTimeout(timeoutId.current);
   }, [isSyncEnabled, pollingRate, backendUrl]);
 
@@ -80,13 +72,18 @@ const App = () => {
 
   const onSave = async () => {
     try {
+      const payload = {
+        nodes: nodes,
+        edges: edges,
+        collab_message: collabInputDisplay // Assuming we send the current display text
+      };
       const response = await fetch(`${backendUrl}/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodes, edges }),
+        body: JSON.stringify(payload),
       });
       const result = await response.json();
-      alert(result.message);
+      alert(`Status: ${result.status}`);
     } catch (error) {
       alert(`Save failed: ${error.message}`);
     }
