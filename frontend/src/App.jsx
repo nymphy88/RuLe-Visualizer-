@@ -43,9 +43,10 @@ const App = () => {
         const response = await fetch(`${backendUrl}/state`);
         const data = await response.json();
 
-        if (data.config) {
-          useStore.setState({ nodes: data.config.nodes || [], edges: data.config.edges || [] });
-        }
+        // if (data.config) {
+        //   // This logic is now disabled to prevent overwriting local state.
+        //   // useStore.setState({ nodes: data.config.nodes || [], edges: data.config.edges || [] });
+        // }
 
         if (data.collab_message !== undefined) {
           setCollabInputDisplay(data.collab_message);

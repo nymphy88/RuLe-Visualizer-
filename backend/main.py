@@ -28,7 +28,7 @@ global_state = {
         ],
         "edges": []
     },
-    "collab_message": ""
+    "collab_message": "Initial collab message from server."
 }
 
 app.add_middleware(

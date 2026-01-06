@@ -20,7 +20,7 @@ test.describe('Verify Sync Feature', () => {
     await expect(page.locator('button:has-text("Add Print Node")')).toBeVisible();
     await expect(page.locator('button:has-text("Add Player Node")')).toBeVisible();
     await expect(page.locator('button:has-text("Add Math Node")')).toBeVisible();
-    await expect(page.locator('button:has-text("Add If-Else Logic Node")')).toBeVisible();
+    await expect(page.locator('button:has-text("Add If-Else Node")')).toBeVisible();
     console.log('All 6 node buttons are visible.');
 
     // Verify the sync button and textarea
