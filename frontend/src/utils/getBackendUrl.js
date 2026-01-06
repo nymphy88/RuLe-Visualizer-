@@ -6,5 +6,5 @@ export const getBackendUrl = () => {
             return `${window.location.protocol}//${import.meta.env.VITE_BACKEND_URL}`;
         }
     }
-    return 'http://localhost:10000';
+    return 'http://localhost:8000';
 };

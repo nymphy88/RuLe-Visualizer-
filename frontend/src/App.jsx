@@ -88,7 +88,7 @@ const App = () => {
         edges: edges,
         collab_message: collabInputDisplay // Assuming we send the current display text
       };
-      const response = await fetch(`${backendUrl}/upload`, {
+      const response = await fetch(`${backendUrl}/update_state`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

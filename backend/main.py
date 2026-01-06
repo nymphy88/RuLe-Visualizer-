@@ -49,8 +49,8 @@ def health_check():
     return {"status": "ok"}
 
 # 3. Standard Post Endpoint
-@app.post("/upload")
-async def upload_config(data: ConfigModel):
+@app.post("/update_state")
+async def update_state(data: ConfigModel):
     global global_state
     global_state["config"] = {"nodes": data.nodes, "edges": data.edges}
     # Note: The user's new frontend logic sends the collab message as part of the main upload.
