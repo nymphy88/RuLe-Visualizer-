@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from fastapi.middleware.cors import CORSMiddleware
+import json
 
 app = FastAPI()
 
@@ -10,6 +11,7 @@ current_config = {
     "nodes": [],
     "edges": []
 }
+collab_message = ""
 
 app.add_middleware(
     CORSMiddleware,
@@ -64,9 +66,21 @@ async def upload_config(request: Request):
 
     return {"message": "Nodes appended successfully"}
 
+@app.post("/upload-collab") # แยก Endpoint ใหม่สำหรับ Colab
+async def upload_collab(request: Request):
+    global collab_message
+    data = await request.json()
+    # เก็บข้อมูลที่ส่งมาในรูปแบบ string เพื่อไปโชว์ใน textbox
+    collab_message = json.dumps(data, indent=2)
+    return {"status": "Collab message received"}
+
 @app.get("/state")
 async def get_state():
-    return current_config
+    # ส่งทั้ง config ของ Node และ message ของ Colab กลับไปพร้อมกัน
+    return {
+        "config": current_config,
+        "collab_message": collab_message
+    }
 
 @app.get("/")
 async def root():

@@ -41,15 +41,19 @@ const App = () => {
         try {
           const response = await fetch(`${backendUrl}/state`);
           if (response.ok) {
-            const serverState = await response.json();
-            setCollabInputDisplay(JSON.stringify(serverState, null, 2));
+            const data = await response.json();
 
-            const { nodes: localNodes, edges: localEdges } = useStore.getState();
-            // อัปเดตเฉพาะเมื่อมีความเปลี่ยนแปลง (Quantum-like efficiency)
-            if (JSON.stringify(serverState.nodes) !== JSON.stringify(localNodes) ||
-                JSON.stringify(serverState.edges) !== JSON.stringify(localEdges)) {
-              useStore.setState({ nodes: serverState.nodes, edges: serverState.edges });
+            // อัปเดต Node บนกระดานตามปกติ (ถ้ามี)
+            if (data.config && data.config.nodes && data.config.edges) {
+                const { nodes: localNodes, edges: localEdges } = useStore.getState();
+                if (JSON.stringify(data.config.nodes) !== JSON.stringify(localNodes) ||
+                    JSON.stringify(data.config.edges) !== JSON.stringify(localEdges)) {
+                  useStore.setState({ nodes: data.config.nodes, edges: data.config.edges });
+                }
             }
+
+            // อัปเดตเฉพาะช่อง Collaboration Textbox
+            setCollabInputDisplay(data.collab_message);
           }
         } catch (error) {
           console.error('Polling error:', error);
