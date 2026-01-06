@@ -11,6 +11,10 @@ import 'reactflow/dist/style.css';
 import './App.css';
 import { getBackendUrl } from './utils/getBackendUrl.js';
 
+// --- CONFIG SECTION ---
+const FRONTEND_VERSION = "v1.0.1-UI-Update";
+// ----------------------
+
 const nodeTypes = {
   object: ObjectNode,
   logic: LogicNode,
@@ -23,10 +27,11 @@ const nodeTypes = {
 const App = () => {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useStore();
   
-  // --- [Config Variables] ประกาศค่าแบบ Modular ตามที่ต้องการ ---
+  // --- [Config Variables] ---
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
-  const [pollingRate, setPollingRate] = useState(1000); // Slider Control
+  const [pollingRate, setPollingRate] = useState(1000);
   const [collabInputDisplay, setCollabInputDisplay] = useState('');
+  const [backendVersion, setBackendVersion] = useState('');
   const timeoutId = useRef(null);
   const backendUrl = getBackendUrl();
 
@@ -38,23 +43,29 @@ const App = () => {
         const response = await fetch(`${backendUrl}/state`);
         const data = await response.json();
 
-        // Update Nodes & Edges (Check if nested under config)
         if (data.config) {
           useStore.setState({ nodes: data.config.nodes || [], edges: data.config.edges || [] });
         }
 
-        // Update Collab Message (The Terminal Box)
         if (data.collab_message !== undefined) {
           setCollabInputDisplay(data.collab_message);
         }
+
+        if (data.version) {
+          setBackendVersion(data.version);
+        }
+
       } catch (error) {
         console.error("Error fetching state:", error);
+        setBackendVersion('Error');
       }
       timeoutId.current = setTimeout(fetchData, pollingRate);
     };
 
     if (isSyncEnabled) {
       fetchData();
+    } else {
+      setBackendVersion(''); // Clear backend version when not syncing
     }
     return () => clearTimeout(timeoutId.current);
   }, [isSyncEnabled, pollingRate, backendUrl]);
@@ -139,6 +150,9 @@ const App = () => {
             # Print Node: print-1767436451252\nprint("")\n\n# Object Node: unnamed\nunnamed_variable = None
           </pre>
         </div>
+      </div>
+      <div style={{ position: 'fixed', bottom: 5, right: 5, fontSize: '10px', opacity: 0.5 }}>
+        F: {FRONTEND_VERSION} | B: {backendVersion || 'Connecting...'}
       </div>
     </div>
   );

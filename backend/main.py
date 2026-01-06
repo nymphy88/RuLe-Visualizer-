@@ -5,6 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
+# --- CONFIG SECTION ---
+API_VERSION = "v1.0.1-CORS-Fix"
+# ----------------------
+
 # 1. Define Standard Model as requested
 class ConfigModel(BaseModel):
     nodes: List[Dict[str, Any]] = []
@@ -29,7 +33,7 @@ global_state = {
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -60,5 +64,6 @@ async def upload_config(data: ConfigModel):
 async def get_state():
     return {
         "config": global_state.get("config", {"nodes": [], "edges": []}),
-        "collab_message": global_state.get("collab_message", "")
+        "collab_message": global_state.get("collab_message", ""),
+        "version": API_VERSION
     }
