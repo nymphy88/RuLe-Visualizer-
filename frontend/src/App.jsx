@@ -41,15 +41,19 @@ const App = () => {
         try {
           const response = await fetch(`${backendUrl}/state`);
           if (response.ok) {
-            const serverState = await response.json();
-            setCollabInputDisplay(JSON.stringify(serverState, null, 2));
+            const data = await response.json();
 
-            const { nodes: localNodes, edges: localEdges } = useStore.getState();
-            // อัปเดตเฉพาะเมื่อมีความเปลี่ยนแปลง (Quantum-like efficiency)
-            if (JSON.stringify(serverState.nodes) !== JSON.stringify(localNodes) ||
-                JSON.stringify(serverState.edges) !== JSON.stringify(localEdges)) {
-              useStore.setState({ nodes: serverState.nodes, edges: serverState.edges });
+            // อัปเดต Node บนกระดานตามปกติ (ถ้ามี)
+            if (data.config && data.config.nodes && data.config.edges) {
+                const { nodes: localNodes, edges: localEdges } = useStore.getState();
+                if (JSON.stringify(data.config.nodes) !== JSON.stringify(localNodes) ||
+                    JSON.stringify(data.config.edges) !== JSON.stringify(localEdges)) {
+                  useStore.setState({ nodes: data.config.nodes, edges: data.config.edges });
+                }
             }
+
+            // อัปเดตเฉพาะช่อง Collaboration Textbox
+            setCollabInputDisplay(data.collab_message);
           }
         } catch (error) {
           console.error('Polling error:', error);
@@ -92,42 +96,53 @@ const App = () => {
     <div className="app-container">
       <div className="sidebar">
         <div className="sidebar-content">
-          <h2 className="sidebar-title">Configuration</h2>
-          <div className="button-group">
-             <button onClick={onSave}>Save & Upload</button>
-             <button onClick={() => setIsSyncEnabled(prev => !prev)}>
-               {isSyncEnabled ? 'Stop Sync' : 'Start Sync'}
-             </button>
+          <h3>Nodes</h3>
+          <div className="node-buttons">
+            <button onClick={() => onAddNode('object')}>Add Object Node</button>
+            <button onClick={() => onAddNode('logic')}>Add Logic Node</button>
+            <button onClick={() => onAddNode('logic-if-else')}>Add If-Else Node</button>
+            <button onClick={() => onAddNode('math')}>Add Math Node</button>
+            <button onClick={() => onAddNode('print')}>Add Print Node</button>
+            <button onClick={() => onAddNode('player')}>Add Player Node</button>
           </div>
 
-          {/* Slider สำหรับคุมความเร็ว (คืนชีพฟีเจอร์ที่หายไป) */}
-          <div style={{ marginTop: '15px', padding: '10px', background: '#f5f5f5', borderRadius: '8px' }}>
-            <label style={{ fontSize: '12px', color: '#666' }}>Polling Speed: {pollingRate}ms</label>
+          <h3>Settings</h3>
+          <div>
+            <label>Polling Rate: {pollingRate / 1000}s</label>
             <input 
               type="range" min="200" max="5000" step="200"
               value={pollingRate} 
               onChange={(e) => setPollingRate(Number(e.target.value))}
-              style={{ width: '100%' }}
             />
           </div>
+          <button onClick={() => setIsSyncEnabled(prev => !prev)}>
+            {isSyncEnabled ? 'Stop Sync' : 'Start Sync'}
+          </button>
+          <button onClick={onSave}>Save & Upload</button>
 
-          <div className="node-buttons" style={{ marginTop: '20px' }}>
-            <button onClick={() => onAddNode('object')}>+ Object</button>
-            <button onClick={() => onAddNode('logic')}>+ Logic</button>
-            <button onClick={() => onAddNode('print')}>+ Print</button>
-            <button onClick={() => onAddNode('player')}>+ Player</button>
-            <button onClick={() => onAddNode('math')}>+ Math</button>
-            <button onClick={() => onAddNode('logic-if-else')}>+ If-Else</button>
-          </div>
-
-          <textarea className="collaboration-input" value={collabInputDisplay} readOnly rows="10" />
+          <h3>Collaboration</h3>
+          <textarea className="collaboration-input" value={collabInputDisplay} readOnly rows="10" placeholder="Collaborator input will appear here..."/>
         </div>
       </div>
-      <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} nodeTypes={nodeTypes} fitView>
-        <MiniMap />
-        <Controls />
-        <Background />
-      </ReactFlow>
+      <div className="main-content">
+        <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} nodeTypes={nodeTypes} fitView>
+          <MiniMap />
+          <Controls />
+          <Background />
+        </ReactFlow>
+      </div>
+      <div className="code-preview-panel">
+        <div className="code-preview-content">
+          <div className="code-preview-header">
+            <h2>Code Preview</h2>
+            <div className={`sync-status ${isSyncEnabled ? 'synced' : 'unsynced'}`}></div>
+          </div>
+          <pre>
+            {/* Placeholder for code preview */}
+            # Print Node: print-1767436451252\nprint("")\n\n# Object Node: unnamed\nunnamed_variable = None
+          </pre>
+        </div>
+      </div>
     </div>
   );
 };
