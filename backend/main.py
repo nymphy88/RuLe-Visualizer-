@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from fastapi.middleware.cors import CORSMiddleware
@@ -48,12 +48,21 @@ default_nodes = [
 current_config = Config(nodes=default_nodes, edges=[])
 
 @app.post("/upload")
-async def upload_config(config: Config):
+async def upload_config(request: Request):
     global current_config
-    current_config = config.model_dump()
-    print("Configuration updated:")
-    print(config.model_dump_json(indent=2))
-    return {"message": "Configuration received successfully"}
+    new_data = await request.json()
+
+    # Ensure current_config is a dictionary before manipulating it
+    if not isinstance(current_config, dict):
+        current_config = current_config.model_dump()
+
+    # ถ้ามีของเก่าอยู่ ให้เอา Node ใหม่ไปรวม (Merge) แทนการทับ
+    if "nodes" in new_data:
+        current_config["nodes"].extend(new_data["nodes"]) # เพิ่ม Node ต่อท้าย
+    if "edges" in new_data:
+        current_config["edges"].extend(new_data["edges"]) # เพิ่มเส้นเชื่อมต่อท้าย
+
+    return {"message": "Nodes appended successfully"}
 
 @app.get("/state")
 async def get_state():
