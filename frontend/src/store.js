@@ -86,6 +86,11 @@ const useStore = create((set, get) => ({
     set({
       edges: addEdge({ ...connection, animated: true }, newEdges),
     });
+
+    // Handle data transfer for PrintNode
+    if (targetNode.type === 'print') {
+      get().updateNodeData(targetNode.id, { value: sourceNode.data.value });
+    }
   },
 
   addNode: (node) => {

@@ -101,6 +101,16 @@ const App = () => {
     }
   };
 
+  const onNodeContextMenu = (event, node) => {
+    event.preventDefault();
+    console.log('Context menu on node:', node);
+  };
+
+  const onPaneContextMenu = (event) => {
+    event.preventDefault();
+    console.log('Context menu on pane');
+  };
+
   return (
     <div className="app-container">
       <div className="sidebar">
@@ -134,7 +144,17 @@ const App = () => {
         </div>
       </div>
       <div className="main-content">
-        <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} nodeTypes={nodeTypes} fitView>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          nodeTypes={nodeTypes}
+          onNodeContextMenu={onNodeContextMenu}
+          onPaneContextMenu={onPaneContextMenu}
+          fitView
+        >
           <MiniMap />
           <Controls />
           <Background />
