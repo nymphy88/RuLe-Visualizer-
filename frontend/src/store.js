@@ -9,6 +9,7 @@ import hasCycle from './utils/cycleDetection';
 const useStore = create((set, get) => ({
   nodes: [],
   edges: [],
+  logs: ['Terminal initialized.'],
 
   onNodesChange: (changes) => {
     set({
@@ -63,34 +64,17 @@ const useStore = create((set, get) => ({
         return node;
       }),
     });
+  },
 
-    const sourceNode = nodes.find(node => node.id === connection.source);
-    const targetNode = nodes.find(node => node.id === connection.target);
-    // ✅ เพิ่มบรรทัดนี้เพื่อกันตาย
-    if (!sourceNode || !targetNode) return;
-    // Type compatibility check
-    const sourceDataType = sourceNode.data.dataType || (['>', '<', '=='].includes(sourceNode.data.operation) ? 'boolean' : 'number');
-    let targetDataType = 'any'; // Default for PrintNode
-    if (targetNode.type === 'logic') {
-      targetDataType = 'number';
-    }
-
-    if (targetDataType !== 'any' && sourceDataType !== targetDataType) {
-      console.warn(`Incompatible connection: ${sourceDataType} to ${targetDataType}`);
-      return; // Prevent connection
-    }
-
-    // Enforce 1-to-1 connection for inputs
-    const newEdges = edges.filter(edge => !(edge.target === connection.target && edge.targetHandle === connection.targetHandle));
-
+  updatePlayerNodeSpeed: (speed) => {
     set({
-      edges: addEdge({ ...connection, animated: true }, newEdges),
+      nodes: get().nodes.map((node) => {
+        if (node.type === 'player') {
+          return { ...node, data: { ...node.data, speed: speed } };
+        }
+        return node;
+      }),
     });
-
-    // Handle data transfer for PrintNode
-    if (targetNode.type === 'print') {
-      get().updateNodeData(targetNode.id, { value: sourceNode.data.value });
-    }
   },
 
   addNode: (node) => {
@@ -129,6 +113,10 @@ const useStore = create((set, get) => ({
         return node;
       }),
     });
+  },
+
+  addLog: (message) => {
+    set((state) => ({ logs: [...state.logs, message] }));
   },
 }));
 

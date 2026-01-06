@@ -7,6 +7,7 @@ import PrintNode from './components/nodes/PrintNode.jsx';
 import PlayerNode from './components/nodes/PlayerNode.jsx';
 import MathNode from './components/nodes/MathNode.jsx';
 import IfElseLogicNode from './components/nodes/IfElseLogicNode.jsx';
+import DebugTerminal from './components/DebugTerminal.jsx';
 import 'reactflow/dist/style.css';
 import './App.css';
 import { getBackendUrl } from './utils/getBackendUrl.js';
@@ -25,7 +26,7 @@ const nodeTypes = {
 };
 
 const App = () => {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useStore();
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, addLog } = useStore();
   
   // --- [Config Variables] ---
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
@@ -48,8 +49,9 @@ const App = () => {
         //   // useStore.setState({ nodes: data.config.nodes || [], edges: data.config.edges || [] });
         // }
 
-        if (data.collab_message !== undefined) {
+        if (data.collab_message !== undefined && data.collab_message !== collabInputDisplay) {
           setCollabInputDisplay(data.collab_message);
+          addLog(`New collab message: ${data.collab_message}`);
         }
 
         if (data.version) {
@@ -175,6 +177,7 @@ const App = () => {
       <div style={{ position: 'fixed', bottom: 5, right: 5, fontSize: '10px', opacity: 0.5 }}>
         F: {FRONTEND_VERSION} | B: {backendVersion || 'Connecting...'}
       </div>
+      <DebugTerminal />
     </div>
   );
 };

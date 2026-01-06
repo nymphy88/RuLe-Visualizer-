@@ -1,0 +1,47 @@
+.debug-terminal-container {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  max-width: 800px;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+  transition: height 0.3s ease-in-out;
+  overflow: hidden;
+  z-index: 1000;
+  color: white;
+}
+
+.terminal-header {
+  padding: 10px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #333;
+}
+
+.terminal-body {
+  padding: 10px;
+  height: calc(100% - 40px);
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-logs {
+  flex-grow: 1;
+  overflow-y: auto;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  white-space: pre-wrap;
+  padding-bottom: 10px;
+}
+
+.terminal-input {
+  border: 1px solid #555;
+  padding: 5px;
+  width: 100%;
+  box-sizing: border-box;
+}
