@@ -15,12 +15,12 @@ test.describe('Verify Sync Feature', () => {
     console.log('Main app container is visible.');
 
     // Verify all 6 node buttons are present
-    await expect(page.locator('button:has-text("Add Object Node")')).toBeVisible();
-    await expect(page.locator('button:has-text("Add Logic Node")')).toBeVisible();
-    await expect(page.locator('button:has-text("Add Print Node")')).toBeVisible();
-    await expect(page.locator('button:has-text("Add Player Node")')).toBeVisible();
-    await expect(page.locator('button:has-text("Add Math Node")')).toBeVisible();
-    await expect(page.locator('button:has-text("Add If-Else Logic Node")')).toBeVisible();
+    await expect(page.locator('button:has-text("+ Object")')).toBeVisible();
+    await expect(page.locator('button:has-text("+ Logic")')).toBeVisible();
+    await expect(page.locator('button:has-text("+ Print")')).toBeVisible();
+    await expect(page.locator('button:has-text("+ Player")')).toBeVisible();
+    await expect(page.locator('button:has-text("+ Math")')).toBeVisible();
+    await expect(page.locator('button:has-text("+ If-Else")')).toBeVisible();
     console.log('All 6 node buttons are visible.');
 
     // Verify the sync button and textarea
