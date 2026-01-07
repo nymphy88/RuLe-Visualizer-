@@ -123,3 +123,10 @@ body, #root {
   flex-grow: 1;
   margin: 0;
 }
+
+.node-buttons, .layout-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 1rem;
+}

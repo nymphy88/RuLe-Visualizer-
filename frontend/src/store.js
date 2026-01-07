@@ -5,6 +5,7 @@ import {
   applyEdgeChanges,
 } from 'reactflow';
 import hasCycle from './utils/cycleDetection';
+import { getLayoutedElements } from './utils/layout';
 
 const useStore = create((set, get) => ({
   nodes: [],
@@ -117,6 +118,71 @@ const useStore = create((set, get) => ({
 
   addLog: (message) => {
     set((state) => ({ logs: [...state.logs, message] }));
+  },
+
+  alignSelectedNodes: (direction) => {
+    const { nodes } = get();
+    const selectedNodes = nodes.filter((node) => node.selected);
+
+    if (selectedNodes.length < 2) return;
+
+    let newNodes = [...nodes];
+    switch (direction) {
+      case 'left':
+        const leftMostX = Math.min(...selectedNodes.map((n) => n.position.x));
+        newNodes = nodes.map((n) =>
+          n.selected ? { ...n, position: { ...n.position, x: leftMostX } } : n
+        );
+        break;
+      case 'center':
+        const centerX = selectedNodes.reduce((sum, n) => sum + n.position.x, 0) / selectedNodes.length;
+        newNodes = nodes.map((n) =>
+          n.selected ? { ...n, position: { ...n.position, x: centerX } } : n
+        );
+        break;
+      case 'top':
+        const topMostY = Math.min(...selectedNodes.map((n) => n.position.y));
+        newNodes = nodes.map((n) =>
+          n.selected ? { ...n, position: { ...n.position, y: topMostY } } : n
+        );
+        break;
+    }
+    set({ nodes: newNodes });
+  },
+
+  autoLayoutNodes: () => {
+    const { nodes, edges } = get();
+    const layoutedNodes = getLayoutedElements(nodes, edges);
+    set({ nodes: layoutedNodes });
+  },
+
+  groupSelectedNodes: () => {
+    const { nodes } = get();
+    const selectedNodes = nodes.filter((node) => node.selected);
+
+    if (selectedNodes.length < 2) return;
+
+    const minX = Math.min(...selectedNodes.map((n) => n.position.x));
+    const minY = Math.min(...selectedNodes.map((n) => n.position.y));
+    const maxX = Math.max(...selectedNodes.map((n) => n.position.x + (n.width || 150)));
+    const maxY = Math.max(...selectedNodes.map((n) => n.position.y + (n.height || 50)));
+
+    const groupNode = {
+      id: `group-${Date.now()}`,
+      type: 'group',
+      position: { x: minX - 20, y: minY - 20 },
+      data: { label: 'New Group' },
+      style: {
+        width: maxX - minX + 40,
+        height: maxY - minY + 40,
+      },
+    };
+
+    const newNodes = nodes.map((n) =>
+      n.selected ? { ...n, parentNode: groupNode.id, selected: false } : n
+    );
+
+    set({ nodes: [...newNodes, groupNode] });
   },
 }));
 

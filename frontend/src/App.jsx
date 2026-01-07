@@ -7,6 +7,7 @@ import PrintNode from './components/nodes/PrintNode.jsx';
 import PlayerNode from './components/nodes/PlayerNode.jsx';
 import MathNode from './components/nodes/MathNode.jsx';
 import IfElseLogicNode from './components/nodes/IfElseLogicNode.jsx';
+import GroupNode from './components/nodes/GroupNode.jsx';
 import DebugTerminal from './components/DebugTerminal.jsx';
 import 'reactflow/dist/style.css';
 import './App.css';
@@ -22,11 +23,12 @@ const nodeTypes = {
   print: PrintNode,
   player: PlayerNode,
   math: MathNode,
-  'logic-if-else': IfElseLogicNode
+  'logic-if-else': IfElseLogicNode,
+  group: GroupNode,
 };
 
 const App = () => {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, addLog } = useStore();
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, addLog, alignSelectedNodes, autoLayoutNodes, groupSelectedNodes } = useStore();
   
   // --- [Config Variables] ---
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
@@ -140,6 +142,15 @@ const App = () => {
             {isSyncEnabled ? 'Stop Sync' : 'Start Sync'}
           </button>
           <button onClick={onSave}>Save & Upload</button>
+
+          <h3>Layout Tools</h3>
+          <div className="layout-buttons">
+            <button onClick={() => alignSelectedNodes('left')}>Align Left</button>
+            <button onClick={() => alignSelectedNodes('center')}>Align Center</button>
+            <button onClick={() => alignSelectedNodes('top')}>Align Top</button>
+            <button onClick={autoLayoutNodes}>Auto-Layout</button>
+            <button onClick={groupSelectedNodes}>Group Selection</button>
+          </div>
 
           <h3>Collaboration</h3>
           <textarea className="collaboration-input" value={collabInputDisplay} readOnly rows="10" placeholder="Collaborator input will appear here..."/>
