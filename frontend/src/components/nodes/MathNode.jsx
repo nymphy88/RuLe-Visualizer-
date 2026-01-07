@@ -4,9 +4,10 @@ import { Handle, Position } from 'reactflow';
 const MathNode = ({ id, data }) => {
   const handleChange = (evt) => {
     const val = parseFloat(evt.target.value) || 0;
-    // สำคัญ: เรียกใช้ onChange ที่ส่งมาจาก App.js เพื่ออัปเดตค่าที่ศูนย์กลาง [cite: 2025-12-26]
+    
+    // [แก้ไขจุดนี้]: ส่งเป็น Object { value: val } เพื่อให้ Store เอาไปรวม (merge) ได้ถูกต้อง
     if (data.onChange) {
-      data.onChange(id, val);
+      data.onChange(id, { value: val }); 
     }
   };
 
@@ -15,7 +16,8 @@ const MathNode = ({ id, data }) => {
       <strong>🔢 Math Node</strong>
       <input 
         type="number" 
-        defaultValue={data.value} 
+        // ใช้ value แทน defaultValue เพื่อให้โหนดอัปเดตตาม Store ได้เสมอ (Controlled Component)
+        value={data.value || 0} 
         onChange={handleChange} 
         style={{ width: '100%', marginTop: '5px' }}
       />
