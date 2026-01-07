@@ -11,9 +11,7 @@ import 'reactflow/dist/style.css';
 import './App.css';
 import { getBackendUrl } from './utils/getBackendUrl.js';
 
-// --- CONFIG SECTION ---
-const FRONTEND_VERSION = "v1.0.1-UI-Update";
-// ----------------------
+const FRONTEND_VERSION = "v1.0.1-DataFlow";
 
 const nodeTypes = {
   object: ObjectNode,
@@ -25,9 +23,9 @@ const nodeTypes = {
 };
 
 const App = () => {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useStore();
+  // ดึง State และ Actions มาจาก Store
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, updateNodeData } = useStore();
   
-  // --- [Config Variables] ---
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
   const [pollingRate, setPollingRate] = useState(1000);
   const [collabInputDisplay, setCollabInputDisplay] = useState('');
@@ -35,27 +33,15 @@ const App = () => {
   const timeoutId = useRef(null);
   const backendUrl = getBackendUrl();
 
-  // --- [Core Logic] Refactored Polling ---
+  // --- [Backend Sync Logic] ---
   useEffect(() => {
     const fetchData = async () => {
       if (!isSyncEnabled) return;
       try {
         const response = await fetch(`${backendUrl}/state`);
         const data = await response.json();
-
-        // if (data.config) {
-        //   // This logic is now disabled to prevent overwriting local state.
-        //   // useStore.setState({ nodes: data.config.nodes || [], edges: data.config.edges || [] });
-        // }
-
-        if (data.collab_message !== undefined) {
-          setCollabInputDisplay(data.collab_message);
-        }
-
-        if (data.version) {
-          setBackendVersion(data.version);
-        }
-
+        if (data.collab_message !== undefined) setCollabInputDisplay(data.collab_message);
+        if (data.version) setBackendVersion(data.version);
       } catch (error) {
         console.error("Error fetching state:", error);
         setBackendVersion('Error');
@@ -63,32 +49,24 @@ const App = () => {
       timeoutId.current = setTimeout(fetchData, pollingRate);
     };
 
-    if (isSyncEnabled) {
-      fetchData();
-    } else {
-      setBackendVersion(''); // Clear backend version when not syncing
-    }
+    if (isSyncEnabled) fetchData();
     return () => clearTimeout(timeoutId.current);
   }, [isSyncEnabled, pollingRate, backendUrl]);
 
-  // --- [Helper Functions] ---
+  // --- [Handlers] ---
   const onAddNode = (type) => {
     const newNode = {
       id: `${type}-${Date.now()}`,
       type,
-      position: { x: Math.random() * 400, y: Math.random() * 400 },
-      data: { label: `${type} node` },
+      position: { x: 50, y: 50 },
+      data: { value: 0, label: `${type} node`, onChange: updateNodeData }, // ใส่ onChange เข้าไปตรงๆ [cite: 2025-12-26]
     };
     addNode(newNode);
   };
 
   const onSave = async () => {
     try {
-      const payload = {
-        nodes: nodes,
-        edges: edges,
-        collab_message: collabInputDisplay // Assuming we send the current display text
-      };
+      const payload = { nodes, edges, collab_message: collabInputDisplay };
       const response = await fetch(`${backendUrl}/update_state`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -101,48 +79,24 @@ const App = () => {
     }
   };
 
-  const onNodeContextMenu = (event, node) => {
-    event.preventDefault();
-    console.log('Context menu on node:', node);
-  };
-
-  const onPaneContextMenu = (event) => {
-    event.preventDefault();
-    console.log('Context menu on pane');
-  };
-
   return (
     <div className="app-container">
       <div className="sidebar">
         <div className="sidebar-content">
           <h3>Nodes</h3>
           <div className="node-buttons">
-            <button onClick={() => onAddNode('object')}>Add Object Node</button>
-            <button onClick={() => onAddNode('logic')}>Add Logic Node</button>
-            <button onClick={() => onAddNode('logic-if-else')}>Add If-Else Node</button>
-            <button onClick={() => onAddNode('math')}>Add Math Node</button>
-            <button onClick={() => onAddNode('print')}>Add Print Node</button>
-            <button onClick={() => onAddNode('player')}>Add Player Node</button>
+            {['object', 'logic', 'logic-if-else', 'math', 'print', 'player'].map(type => (
+              <button key={type} onClick={() => onAddNode(type)}>Add {type} Node</button>
+            ))}
           </div>
 
           <h3>Settings</h3>
-          <div>
-            <label>Polling Rate: {pollingRate / 1000}s</label>
-            <input 
-              type="range" min="200" max="5000" step="200"
-              value={pollingRate} 
-              onChange={(e) => setPollingRate(Number(e.target.value))}
-            />
-          </div>
-          <button onClick={() => setIsSyncEnabled(prev => !prev)}>
-            {isSyncEnabled ? 'Stop Sync' : 'Start Sync'}
-          </button>
+          <input type="range" min="200" max="5000" step="200" value={pollingRate} onChange={(e) => setPollingRate(Number(e.target.value))} />
+          <button onClick={() => setIsSyncEnabled(p => !p)}>{isSyncEnabled ? 'Stop Sync' : 'Start Sync'}</button>
           <button onClick={onSave}>Save & Upload</button>
-
-          <h3>Collaboration</h3>
-          <textarea className="collaboration-input" value={collabInputDisplay} readOnly rows="10" placeholder="Collaborator input will appear here..."/>
         </div>
       </div>
+
       <div className="main-content">
         <ReactFlow
           nodes={nodes}
@@ -151,27 +105,14 @@ const App = () => {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
-          onNodeContextMenu={onNodeContextMenu}
-          onPaneContextMenu={onPaneContextMenu}
           fitView
         >
           <MiniMap />
           <Controls />
-          <Background />
+          <Background color="#aaa" gap={16} />
         </ReactFlow>
       </div>
-      <div className="code-preview-panel">
-        <div className="code-preview-content">
-          <div className="code-preview-header">
-            <h2>Code Preview</h2>
-            <div className={`sync-status ${isSyncEnabled ? 'synced' : 'unsynced'}`}></div>
-          </div>
-          <pre>
-            {/* Placeholder for code preview */}
-            # Print Node: print-1767436451252\nprint("")\n\n# Object Node: unnamed\nunnamed_variable = None
-          </pre>
-        </div>
-      </div>
+      
       <div style={{ position: 'fixed', bottom: 5, right: 5, fontSize: '10px', opacity: 0.5 }}>
         F: {FRONTEND_VERSION} | B: {backendVersion || 'Connecting...'}
       </div>
