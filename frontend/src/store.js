@@ -1,9 +1,16 @@
 import { create } from 'zustand';
-import { addEdge, applyNodeChanges, applyEdgeChanges } from 'reactflow';
+import {
+  addEdge,
+  applyNodeChanges,
+  applyEdgeChanges,
+} from 'reactflow';
+import hasCycle from './utils/cycleDetection';
+import { getLayoutedElements } from './utils/layout';
 
 const useStore = create((set, get) => ({
   nodes: [],
   edges: [],
+  logs: ['Terminal initialized.'],
 
   // 1. ส่วนจัดการ Nodes (ของเดิมที่คุณมี)
   onNodesChange: (changes) => {
@@ -20,11 +27,41 @@ const useStore = create((set, get) => ({
   },
 
   onConnect: (connection) => {
+    const { nodes, edges } = get();
+
+    if (hasCycle(nodes, edges, connection)) {
+      console.warn('A cycle was detected. The connection is not allowed.');
+      set({
+        nodes: get().nodes.map(node => {
+          if (node.id === connection.source || node.id === connection.target) {
+            return { ...node, data: { ...node.data, status: 'Error: Loop' } };
+          }
+          return node;
+        }),
+      });
+      return;
+    }
+
+    // Reset status for the connected nodes if they were in an error state
     set({
-      edges: addEdge(connection, get().edges),
+      nodes: get().nodes.map(node => {
+        if ((node.id === connection.source || node.id === connection.target) && node.data.status === 'Error: Loop') {
+          return { ...node, data: { ...node.data, status: 'Ready' } };
+        }
+        return node;
+      }),
     });
-    // [Added] เมื่อเชื่อมสายปุ๊บ ให้ข้อมูลไหลจากต้นทางไปปลายทางทันที
-    get().runFlow(connection.source);
+  },
+
+  updatePlayerNodeSpeed: (speed) => {
+    set({
+      nodes: get().nodes.map((node) => {
+        if (node.type === 'player') {
+          return { ...node, data: { ...node.data, speed: speed } };
+        }
+        return node;
+      }),
+    });
   },
 
   // 3. ฟังก์ชันเพิ่มโหนด (แบบที่คุณใช้ใน App.jsx)
@@ -49,42 +86,74 @@ const useStore = create((set, get) => ({
     get().runFlow(nodeId);
   },
 
-  // 5. [New Engine] ตัวคำนวณการไหลของข้อมูล (Recursive Data Propagation)
-  runFlow: (sourceId) => {
-    const { edges, nodes } = get();
-    // หาเส้นไฟที่ออกจากโหนดต้นทางนี้
-    const outcomingEdges = edges.filter((e) => e.source === sourceId);
-
-    outcomingEdges.forEach((edge) => {
-      const sourceNode = nodes.find((n) => n.id === edge.source);
-      const targetNode = nodes.find((n) => n.id === edge.target);
-
-      // ถ้ามีทั้งต้นทางและปลายทาง และข้อมูลมีการเปลี่ยนแปลง
-      if (sourceNode && targetNode) {
-        // กฎพื้นฐาน: ส่งค่า .value จากต้นทางไปปลายทาง
-        // คุณสามารถเพิ่ม Logic พิเศษตรงนี้ได้ในอนาคต (เช่น ถ้าเป็น Math Node ให้บวกเลข)
-        const newValue = sourceNode.data.value;
-
-        if (targetNode.data.value !== newValue) {
-          // อัปเดตโหนดปลายทาง
-          set({
-            nodes: get().nodes.map((n) => {
-              if (n.id === edge.target) {
-                return { ...n, data: { ...n.data, value: newValue } };
-              }
-              return n;
-            }),
-          });
-          // สั่งรัน Flow ต่อจากโหนดปลายทาง (เพื่อให้ข้อมูลไหลเป็นทอดๆ เหมือนโดมิโน่)
-          get().runFlow(edge.target);
-        }
-      }
-    });
+  addLog: (message) => {
+    set((state) => ({ logs: [...state.logs, message] }));
   },
 
-  // 6. ฟังก์ชันอื่นๆ ที่คุณอาจจะมี เช่น setNodes, setEdges (ใส่กลับมาให้ครบได้เลย)
-  setNodes: (nodes) => set({ nodes }),
-  setEdges: (edges) => set({ edges }),
+  alignSelectedNodes: (direction) => {
+    const { nodes } = get();
+    const selectedNodes = nodes.filter((node) => node.selected);
+
+    if (selectedNodes.length < 2) return;
+
+    let newNodes = [...nodes];
+    switch (direction) {
+      case 'left':
+        const leftMostX = Math.min(...selectedNodes.map((n) => n.position.x));
+        newNodes = nodes.map((n) =>
+          n.selected ? { ...n, position: { ...n.position, x: leftMostX } } : n
+        );
+        break;
+      case 'center':
+        const centerX = selectedNodes.reduce((sum, n) => sum + n.position.x, 0) / selectedNodes.length;
+        newNodes = nodes.map((n) =>
+          n.selected ? { ...n, position: { ...n.position, x: centerX } } : n
+        );
+        break;
+      case 'top':
+        const topMostY = Math.min(...selectedNodes.map((n) => n.position.y));
+        newNodes = nodes.map((n) =>
+          n.selected ? { ...n, position: { ...n.position, y: topMostY } } : n
+        );
+        break;
+    }
+    set({ nodes: newNodes });
+  },
+
+  autoLayoutNodes: () => {
+    const { nodes, edges } = get();
+    const layoutedNodes = getLayoutedElements(nodes, edges);
+    set({ nodes: layoutedNodes });
+  },
+
+  groupSelectedNodes: () => {
+    const { nodes } = get();
+    const selectedNodes = nodes.filter((node) => node.selected);
+
+    if (selectedNodes.length < 2) return;
+
+    const minX = Math.min(...selectedNodes.map((n) => n.position.x));
+    const minY = Math.min(...selectedNodes.map((n) => n.position.y));
+    const maxX = Math.max(...selectedNodes.map((n) => n.position.x + (n.width || 150)));
+    const maxY = Math.max(...selectedNodes.map((n) => n.position.y + (n.height || 50)));
+
+    const groupNode = {
+      id: `group-${Date.now()}`,
+      type: 'group',
+      position: { x: minX - 20, y: minY - 20 },
+      data: { label: 'New Group' },
+      style: {
+        width: maxX - minX + 40,
+        height: maxY - minY + 40,
+      },
+    };
+
+    const newNodes = nodes.map((n) =>
+      n.selected ? { ...n, parentNode: groupNode.id, selected: false } : n
+    );
+
+    set({ nodes: [...newNodes, groupNode] });
+  },
 }));
 
 export default useStore;

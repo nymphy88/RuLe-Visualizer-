@@ -7,6 +7,8 @@ import PrintNode from './components/nodes/PrintNode.jsx';
 import PlayerNode from './components/nodes/PlayerNode.jsx';
 import MathNode from './components/nodes/MathNode.jsx';
 import IfElseLogicNode from './components/nodes/IfElseLogicNode.jsx';
+import GroupNode from './components/nodes/GroupNode.jsx';
+import DebugTerminal from './components/DebugTerminal.jsx';
 import 'reactflow/dist/style.css';
 import './App.css';
 import { getBackendUrl } from './utils/getBackendUrl.js';
@@ -19,12 +21,12 @@ const nodeTypes = {
   print: PrintNode,
   player: PlayerNode,
   math: MathNode,
-  'logic-if-else': IfElseLogicNode
+  'logic-if-else': IfElseLogicNode,
+  group: GroupNode,
 };
 
 const App = () => {
-  // ดึง State และ Actions มาจาก Store
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, updateNodeData } = useStore();
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, addLog, alignSelectedNodes, autoLayoutNodes, groupSelectedNodes } = useStore();
   
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
   const [pollingRate, setPollingRate] = useState(1000);
@@ -40,8 +42,21 @@ const App = () => {
       try {
         const response = await fetch(`${backendUrl}/state`);
         const data = await response.json();
-        if (data.collab_message !== undefined) setCollabInputDisplay(data.collab_message);
-        if (data.version) setBackendVersion(data.version);
+
+        // if (data.config) {
+        //   // This logic is now disabled to prevent overwriting local state.
+        //   // useStore.setState({ nodes: data.config.nodes || [], edges: data.config.edges || [] });
+        // }
+
+        if (data.collab_message !== undefined && data.collab_message !== collabInputDisplay) {
+          setCollabInputDisplay(data.collab_message);
+          addLog(`New collab message: ${data.collab_message}`);
+        }
+
+        if (data.version) {
+          setBackendVersion(data.version);
+        }
+
       } catch (error) {
         console.error("Error fetching state:", error);
         setBackendVersion('Error');
@@ -94,6 +109,18 @@ const App = () => {
           <input type="range" min="200" max="5000" step="200" value={pollingRate} onChange={(e) => setPollingRate(Number(e.target.value))} />
           <button onClick={() => setIsSyncEnabled(p => !p)}>{isSyncEnabled ? 'Stop Sync' : 'Start Sync'}</button>
           <button onClick={onSave}>Save & Upload</button>
+
+          <h3>Layout Tools</h3>
+          <div className="layout-buttons">
+            <button onClick={() => alignSelectedNodes('left')}>Align Left</button>
+            <button onClick={() => alignSelectedNodes('center')}>Align Center</button>
+            <button onClick={() => alignSelectedNodes('top')}>Align Top</button>
+            <button onClick={autoLayoutNodes}>Auto-Layout</button>
+            <button onClick={groupSelectedNodes}>Group Selection</button>
+          </div>
+
+          <h3>Collaboration</h3>
+          <textarea className="collaboration-input" value={collabInputDisplay} readOnly rows="10" placeholder="Collaborator input will appear here..."/>
         </div>
       </div>
 
@@ -116,6 +143,7 @@ const App = () => {
       <div style={{ position: 'fixed', bottom: 5, right: 5, fontSize: '10px', opacity: 0.5 }}>
         F: {FRONTEND_VERSION} | B: {backendVersion || 'Connecting...'}
       </div>
+      <DebugTerminal />
     </div>
   );
 };
