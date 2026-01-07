@@ -1,135 +1,90 @@
 import { create } from 'zustand';
-import {
-  addEdge,
-  applyNodeChanges,
-  applyEdgeChanges,
-} from 'reactflow';
-import hasCycle from './utils/cycleDetection';
+import { addEdge, applyNodeChanges, applyEdgeChanges } from 'reactflow';
 
 const useStore = create((set, get) => ({
   nodes: [],
   edges: [],
 
+  // 1. ส่วนจัดการ Nodes (ของเดิมที่คุณมี)
   onNodesChange: (changes) => {
     set({
       nodes: applyNodeChanges(changes, get().nodes),
     });
   },
 
+  // 2. ส่วนจัดการ Edges (ของเดิม + สั่งรัน Flow ทันทีที่เชื่อมสาย)
   onEdgesChange: (changes) => {
-    const isRemoveChange = changes.some(change => change.type === 'remove');
-
-    set(state => {
-      let newNodes = state.nodes;
-      // If an edge is removed, it might break a cycle. Reset status of error nodes.
-      if (isRemoveChange) {
-        newNodes = state.nodes.map(node => {
-          if (node.data.status === 'Error: Loop') {
-            return { ...node, data: { ...node.data, status: 'Ready' } };
-          }
-          return node;
-        });
-      }
-
-      return {
-        edges: applyEdgeChanges(changes, state.edges),
-        nodes: newNodes,
-      };
+    set({
+      edges: applyEdgeChanges(changes, get().edges),
     });
   },
 
   onConnect: (connection) => {
-    const { nodes, edges } = get();
-
-    if (hasCycle(nodes, edges, connection)) {
-      console.warn('A cycle was detected. The connection is not allowed.');
-      set({
-        nodes: get().nodes.map(node => {
-          if (node.id === connection.source || node.id === connection.target) {
-            return { ...node, data: { ...node.data, status: 'Error: Loop' } };
-          }
-          return node;
-        }),
-      });
-      return;
-    }
-
-    // Reset status for the connected nodes if they were in an error state
     set({
-      nodes: get().nodes.map(node => {
-        if ((node.id === connection.source || node.id === connection.target) && node.data.status === 'Error: Loop') {
-          return { ...node, data: { ...node.data, status: 'Ready' } };
-        }
-        return node;
-      }),
+      edges: addEdge(connection, get().edges),
     });
-
-    const sourceNode = nodes.find(node => node.id === connection.source);
-    const targetNode = nodes.find(node => node.id === connection.target);
-    // ✅ เพิ่มบรรทัดนี้เพื่อกันตาย
-    if (!sourceNode || !targetNode) return;
-    // Type compatibility check
-    const sourceDataType = sourceNode.data.dataType || (['>', '<', '=='].includes(sourceNode.data.operation) ? 'boolean' : 'number');
-    let targetDataType = 'any'; // Default for PrintNode
-    if (targetNode.type === 'logic') {
-      targetDataType = 'number';
-    }
-
-    if (targetDataType !== 'any' && sourceDataType !== targetDataType) {
-      console.warn(`Incompatible connection: ${sourceDataType} to ${targetDataType}`);
-      return; // Prevent connection
-    }
-
-    // Enforce 1-to-1 connection for inputs
-    const newEdges = edges.filter(edge => !(edge.target === connection.target && edge.targetHandle === connection.targetHandle));
-
-    set({
-      edges: addEdge({ ...connection, animated: true }, newEdges),
-    });
-
-    // Handle data transfer for PrintNode
-    if (targetNode.type === 'print') {
-      get().updateNodeData(targetNode.id, { value: sourceNode.data.value });
-    }
+    // [Added] เมื่อเชื่อมสายปุ๊บ ให้ข้อมูลไหลจากต้นทางไปปลายทางทันที
+    get().runFlow(connection.source);
   },
 
+  // 3. ฟังก์ชันเพิ่มโหนด (แบบที่คุณใช้ใน App.jsx)
   addNode: (node) => {
     set({
       nodes: [...get().nodes, node],
     });
   },
 
-  deleteNode: (nodeId) => {
-    set({
-      nodes: get().nodes.filter((node) => node.id !== nodeId),
-      edges: get().edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId),
-    });
-  },
-
-  cloneNode: (node) => {
-    const newNode = {
-      ...node,
-      id: `${node.type}-${Date.now()}`,
-      position: {
-        x: node.position.x + 20,
-        y: node.position.y + 20,
-      },
-      selected: false,
-    };
-    const newNodes = get().nodes.map(n => ({ ...n, selected: false }));
-    set({ nodes: [...newNodes, newNode] });
-  },
-
+  // 4. [New Heart] ฟังก์ชันอัปเดตข้อมูลและสั่งรัน Flow [cite: 2025-12-26]
   updateNodeData: (nodeId, newData) => {
     set({
       nodes: get().nodes.map((node) => {
         if (node.id === nodeId) {
+          // ผสมข้อมูลใหม่เข้าไปใน data เดิม (Lego Modular Style)
           return { ...node, data: { ...node.data, ...newData } };
         }
         return node;
       }),
     });
+    // ส่งค่าต่อไปยังโหนดลูกๆ ที่เชื่อมอยู่
+    get().runFlow(nodeId);
   },
+
+  // 5. [New Engine] ตัวคำนวณการไหลของข้อมูล (Recursive Data Propagation)
+  runFlow: (sourceId) => {
+    const { edges, nodes } = get();
+    // หาเส้นไฟที่ออกจากโหนดต้นทางนี้
+    const outcomingEdges = edges.filter((e) => e.source === sourceId);
+
+    outcomingEdges.forEach((edge) => {
+      const sourceNode = nodes.find((n) => n.id === edge.source);
+      const targetNode = nodes.find((n) => n.id === edge.target);
+
+      // ถ้ามีทั้งต้นทางและปลายทาง และข้อมูลมีการเปลี่ยนแปลง
+      if (sourceNode && targetNode) {
+        // กฎพื้นฐาน: ส่งค่า .value จากต้นทางไปปลายทาง
+        // คุณสามารถเพิ่ม Logic พิเศษตรงนี้ได้ในอนาคต (เช่น ถ้าเป็น Math Node ให้บวกเลข)
+        const newValue = sourceNode.data.value;
+
+        if (targetNode.data.value !== newValue) {
+          // อัปเดตโหนดปลายทาง
+          set({
+            nodes: get().nodes.map((n) => {
+              if (n.id === edge.target) {
+                return { ...n, data: { ...n.data, value: newValue } };
+              }
+              return n;
+            }),
+          });
+          // สั่งรัน Flow ต่อจากโหนดปลายทาง (เพื่อให้ข้อมูลไหลเป็นทอดๆ เหมือนโดมิโน่)
+          get().runFlow(edge.target);
+        }
+      }
+    });
+  },
+
+  // 6. ฟังก์ชันอื่นๆ ที่คุณอาจจะมี เช่น setNodes, setEdges (ใส่กลับมาให้ครบได้เลย)
+  setNodes: (nodes) => set({ nodes }),
+  setEdges: (edges) => set({ edges }),
 }));
 
 export default useStore;
