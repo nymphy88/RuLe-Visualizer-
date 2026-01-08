@@ -1,19 +1,23 @@
 services:
+  # 1. Backend
   - type: web
-    name: my-fastapi-app
+    name: backend  # เปลี่ยนจาก my-fastapi-app เป็น backend ตามของเดิม
     env: python
     rootDir: backend
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "uvicorn main:app --host 0.0.0.0 --port 10000"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /health
-  - type: static_site
-    name: my-react-app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.4
+
+  # 2. Frontend (Deploy แบบ Web Service ตามที่คุณเคยผ่าน)
+  - type: web
+    name: frontend  # เปลี่ยนจาก my-react-app เป็น frontend
+    env: node
     rootDir: frontend
     buildCommand: "npm install && npm run build"
-    staticPublishPath: dist
+    startCommand: "npx serve -s dist" # ใช้ serve เพื่อรันไฟล์ใน dist
     envVars:
       - key: VITE_BACKEND_URL
-        fromService:
-          type: web
-          name: my-fastapi-app
-          property: hostport
+        value: https://backend-h33f.onrender.com
