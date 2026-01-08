@@ -20,6 +20,7 @@ services:
     startCommand: "npx serve -s dist" # ใช้ serve เพื่อรันไฟล์ใน dist
     envVars:
       - key: VITE_BACKEND_URL
+        value: https://backend-h33f.onrender.com
         fromService:
           type: web
           name: backend
