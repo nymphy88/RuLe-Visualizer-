@@ -9,12 +9,12 @@ services:
     healthCheckPath: /health
 
   # 2. Frontend (React/Vite)
-  - type: web  # ย้ำ! ต้องใช้ web แม้จะเป็น static site
+  - type: static # สำหรับไฟล์ YAML คำที่ถูกต้องและสั้นที่สุดคือ static
     name: my-react-app
-    env: static # จุดที่บอกว่าเป็น Static คือตรงนี้ครับ
+    env: static
     rootDir: frontend
     buildCommand: "npm install && npm run build"
-    publishPath: dist # เมื่อใช้ env: static ต้องใช้ publishPath
+    publishPath: dist
     envVars:
       - key: VITE_BACKEND_URL
         fromService:
