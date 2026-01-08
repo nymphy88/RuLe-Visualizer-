@@ -6,7 +6,7 @@ services:
     buildCommand: "pip install -r requirements.txt"
     startCommand: "uvicorn main:app --host 0.0.0.0 --port 10000"
     healthCheckPath: /health
-  - type: static
+  - type: static_site
     name: my-react-app
     rootDir: frontend
     buildCommand: "npm install && npm run build"
