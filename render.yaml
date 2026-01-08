@@ -21,7 +21,3 @@ services:
     envVars:
       - key: VITE_BACKEND_URL
         value: https://backend-h33f.onrender.com
-        fromService:
-          type: web
-          name: backend
-          property: host
