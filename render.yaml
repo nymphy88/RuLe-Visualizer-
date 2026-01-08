@@ -1,4 +1,5 @@
 services:
+  # 1. Backend (Python FastAPI) - อันนี้ถูกต้องอยู่แล้ว
   - type: web
     name: my-fastapi-app
     env: python
@@ -6,14 +7,17 @@ services:
     buildCommand: "pip install -r requirements.txt"
     startCommand: "uvicorn main:app --host 0.0.0.0 --port 10000"
     healthCheckPath: /health
-  - type: web
+
+  # 2. Frontend (React/Vite) - แก้ไขจาก Web เป็น Static เพื่อให้ประหยัดและเสถียร
+  - type: static
     name: my-react-app
+    env: static  # เพิ่ม env ให้ชัดเจน
     rootDir: frontend
     buildCommand: "npm install && npm run build"
-    staticPublishPath: dist
+    publishPath: dist  # เปลี่ยนจาก staticPublishPath เป็น publishPath (ตามมาตรฐาน Render)
     envVars:
       - key: VITE_BACKEND_URL
         fromService:
           type: web
           name: my-fastapi-app
-          property: hostport
+          property: host
