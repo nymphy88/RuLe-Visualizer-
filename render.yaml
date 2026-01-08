@@ -9,7 +9,7 @@ services:
     healthCheckPath: /health
 
   # 2. Frontend (React/Vite)
-  - type: static # สำหรับไฟล์ YAML คำที่ถูกต้องและสั้นที่สุดคือ static
+  - type: static_site
     name: my-react-app
     env: static
     rootDir: frontend
