@@ -9,7 +9,7 @@ services:
     healthCheckPath: /health
 
   # 2. Frontend (React/Vite) - แก้ไขจาก Web เป็น Static เพื่อให้ประหยัดและเสถียร
-  - type: static
+  - type: static_site
     name: my-react-app
     env: static  # เพิ่ม env ให้ชัดเจน
     rootDir: frontend
