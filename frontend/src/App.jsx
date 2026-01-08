@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactFlow, { MiniMap, Controls, Background } from 'reactflow';
 import useStore from './store';
+import ContextMenu from './components/ContextMenu.jsx';
 import ObjectNode from './components/nodes/ObjectNode.jsx';
 import LogicNode from './components/nodes/LogicNode.jsx';
 import PrintNode from './components/nodes/PrintNode.jsx';
@@ -29,6 +30,7 @@ const nodeTypes = {
 
 const App = () => {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, addLog, alignSelectedNodes, autoLayoutNodes, groupSelectedNodes } = useStore();
+  const [menu, setMenu] = useState(null);
   
   // --- [Config Variables] ---
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
@@ -105,18 +107,42 @@ const App = () => {
     }
   };
 
-  const onNodeContextMenu = (event, node) => {
-    event.preventDefault();
-    console.log('Context menu on node:', node);
-  };
+  const onNodeContextMenu = useCallback(
+    (event, node) => {
+      event.preventDefault();
+      const pane = event.target.closest('.react-flow__pane');
+      const paneRect = pane.getBoundingClientRect();
+      setMenu({
+        id: node.id,
+        top: event.clientY,
+        left: event.clientX,
+        right: paneRect.width - event.clientX,
+        bottom: paneRect.height - event.clientY,
+      });
+    },
+    [setMenu],
+  );
 
-  const onPaneContextMenu = (event) => {
-    event.preventDefault();
-    console.log('Context menu on pane');
-  };
+  const onPaneContextMenu = useCallback(
+    (event) => {
+      event.preventDefault();
+      const pane = event.target.closest('.react-flow__pane');
+      const paneRect = pane.getBoundingClientRect();
+      setMenu({
+        id: null, // No node associated with pane context menu
+        top: event.clientY,
+        left: event.clientX,
+        right: paneRect.width - event.clientX,
+        bottom: paneRect.height - event.clientY,
+      });
+    },
+    [setMenu],
+  );
+
+  const onPaneClick = useCallback(() => setMenu(null), [setMenu]);
 
   return (
-    <div className="app-container">
+    <div className="app-container" onClick={onPaneClick}>
       <div className="sidebar">
         <div className="sidebar-content">
           <h3>Nodes</h3>
@@ -166,11 +192,13 @@ const App = () => {
           nodeTypes={nodeTypes}
           onNodeContextMenu={onNodeContextMenu}
           onPaneContextMenu={onPaneContextMenu}
+          onPaneClick={onPaneClick}
           fitView
         >
           <MiniMap />
           <Controls />
           <Background />
+          {menu && <ContextMenu onClick={onPaneClick} {...menu} />}
         </ReactFlow>
       </div>
       <div className="code-preview-panel">

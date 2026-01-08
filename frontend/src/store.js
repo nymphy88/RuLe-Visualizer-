@@ -51,6 +51,10 @@ const useStore = create((set, get) => ({
         return node;
       }),
     });
+
+    set({
+      edges: addEdge({ ...connection, animated: true }, get().edges),
+    });
   },
 
   updatePlayerNodeSpeed: (speed) => {
@@ -164,6 +168,24 @@ const useStore = create((set, get) => ({
     );
 
     set({ nodes: [...newNodes, groupNode] });
+  },
+
+  deleteNode: (id) => {
+    set({
+      nodes: get().nodes.filter((node) => node.id !== id),
+    });
+  },
+
+  disconnectNode: (id) => {
+    const { edges } = get();
+    const newEdges = edges.filter((edge) => edge.source !== id && edge.target !== id);
+    set({ edges: newEdges });
+  },
+
+  deleteEdgeById: (id) => {
+    set({
+      edges: get().edges.filter((edge) => edge.id !== id),
+    });
   },
 }));
 

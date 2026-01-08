@@ -45,7 +45,7 @@ test.describe('Verify Sync Feature', () => {
     console.log('Collaboration textarea is populated after sync.');
 
     // Capture a screenshot for visual confirmation
-    await page.screenshot({ path: 'frontend/tests/verification-screenshot.png' });
+    await page.screenshot({ path: 'screenshots/verification-screenshot.png' });
     console.log('Screenshot captured.');
   });
 });
